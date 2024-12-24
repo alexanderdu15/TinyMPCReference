@@ -1,3 +1,6 @@
+# src/tinympc.py
+import numpy as np
+
 class TinyMPC:
     def __init__(self, input_data, Nsteps, mode=0):
         # Initialize cache
@@ -9,19 +12,19 @@ class TinyMPC:
         self.cache['R'] = input_data['R']
 
         # Get dimensions
-        nx = self.cache['A'].shape[0]
-        nu = self.cache['B'].shape[1]
+        self.nx = self.cache['A'].shape[0]
+        self.nu = self.cache['B'].shape[1]
+        self.N = Nsteps
 
-       # Compute cache terms 
+        # Compute cache terms 
         self.compute_cache_terms()
         
         # Set default tolerances and iterations
         self.set_tols_iters()
         
         # Initialize previous solutions for warm start
-        self.x_prev = np.zeros((nx, Nsteps))
-        self.u_prev = np.zeros((nu, Nsteps))
-        self.N = Nsteps
+        self.x_prev = np.zeros((self.nx, Nsteps))
+        self.u_prev = np.zeros((self.nu, Nsteps-1))
 
     def compute_cache_terms(self):
         """Compute and cache terms for ADMM"""
@@ -33,7 +36,7 @@ class TinyMPC:
         A = self.cache['A']
         B = self.cache['B']
         Kinf = np.zeros(B.T.shape)
-        Pinf = np.copy(Q_rho)
+        Pinf = np.copy(self.cache['Q'])
 
         # Compute infinite horizon solution
         for k in range(5000):
@@ -67,19 +70,14 @@ class TinyMPC:
         self.backward_pass_grad(d, p, q, r)
         self.forward_pass(x, u, d)
 
-    def update_slack(self, z, v, y, g, u, x, umax=None, umin=None, xmax=None, xmin=None):
+    def update_slack(self, z, v, y, g, u, x):
+        """Update slack variables"""
         for k in range(self.N - 1):
-            z[:, k] = u[:, k] + y[:, k]
-            v[:, k] = x[:, k] + g[:, k]
-            
-            if (umin is not None) and (umax is not None):
-                z[:, k] = np.clip(z[:, k], umin, umax)
-            if (xmin is not None) and (xmax is not None):
-                v[:, k] = np.clip(v[:, k], xmin, xmax)
+            z[:, k] = np.clip(u[:, k] + y[:, k], self.umin, self.umax)
+            v[:, k] = np.clip(x[:, k] + g[:, k], self.xmin, self.xmax)
+        v[:, self.N-1] = np.clip(x[:, self.N-1] + g[:, self.N-1], self.xmin, self.xmax)
 
-        v[:, self.N-1] = x[:, self.N-1] + g[:, self.N-1]
-        if (xmin is not None) and (xmax is not None):
-            v[:, self.N-1] = np.clip(v[:, self.N-1], xmin, xmax)
+
 
     def update_dual(self, y, g, u, x, z, v):
         for k in range(self.N - 1):
@@ -100,18 +98,18 @@ class TinyMPC:
 
     def set_bounds(self, umax=None, umin=None, xmax=None, xmin=None):
         if (umin is not None) and (umax is not None):
-            self.umin = umin
-            self.umax = umax
+            self.umin = np.array(umin)
+            self.umax = np.array(umax)
         if (xmin is not None) and (xmax is not None):
-            self.xmin = xmin
-            self.xmax = xmax
+            self.xmin = np.array(xmin)
+            self.xmax = np.array(xmax)
 
-    def set_tols_iters(self, max_iter=500, abs_pri_tol=1e-7, abs_dua_tol=1e-7):
+    def set_tols_iters(self, max_iter=500, abs_pri_tol=1e-2, abs_dua_tol=1e-2):
         self.max_iter = max_iter
         self.abs_pri_tol = abs_pri_tol
         self.abs_dua_tol = abs_dua_tol
 
-    def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None, current_time=None):
+    def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None):
         status = 0
         x = np.copy(x_init)
         u = np.copy(u_init)
@@ -126,33 +124,32 @@ class TinyMPC:
         p = np.zeros(x.shape)
         d = np.zeros(u.shape)
 
-        if x_ref is None:
+        if (x_ref is None):
             x_ref = np.zeros(x.shape)
-        if u_ref is None:
+        if (u_ref is None):
             u_ref = np.zeros(u.shape)
 
         for k in range(self.max_iter):
             self.update_primal(x, u, d, p, q, r)
-            self.update_slack(z, v, y, g, u, x, self.umax, self.umin, self.xmax, self.xmin)
+            self.update_slack(z, v, y, g, u, x)
             self.update_dual(y, g, u, x, z, v)
             self.update_linear_cost(r, q, p, z, v, y, g, u_ref, x_ref)
 
-            # Compute residuals
             pri_res_input = np.max(np.abs(u - z))
             pri_res_state = np.max(np.abs(x - v))
             dua_res_input = np.max(np.abs(self.cache['rho'] * (z_prev - z)))
             dua_res_state = np.max(np.abs(self.cache['rho'] * (v_prev - v)))
 
-            pri_res = max(pri_res_input, pri_res_state)
-            dual_res = max(dua_res_input, dua_res_state)
-
             z_prev = np.copy(z)
             v_prev = np.copy(v)
 
-            if (pri_res < self.abs_pri_tol and dual_res < self.abs_dua_tol):
+            if (pri_res_input < self.abs_pri_tol and dua_res_input < self.abs_dua_tol and
+                pri_res_state < self.abs_pri_tol and dua_res_state < self.abs_dua_tol):
                 status = 1
                 break
 
         self.x_prev = x
         self.u_prev = u
         return x, u, status, k
+
+    
