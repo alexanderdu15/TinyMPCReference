@@ -1,43 +1,75 @@
-# src/utils/visualization.py
 import numpy as np
 import matplotlib.pyplot as plt
 
-def visualize_trajectory(x_all, u_all, xg, ug):
-    """Plot state and input trajectories"""
+def visualize_trajectory(x_all, u_all, xg=None, ug=None, trajectory=None, dt=0.02):
+    """
+    Plot state and input trajectories 
+    """
     x_all = np.array(x_all)
     u_all = np.array(u_all)
     nsteps = len(x_all)
-    steps = np.arange(nsteps)
+    t = np.arange(nsteps) * dt
 
     fig = plt.figure(figsize=(15, 12))
     
+    # 3D trajectory plot
+    # ax0 = fig.add_subplot(221, projection='3d')
+    # ax0.plot3D(x_all[:, 0], x_all[:, 1], x_all[:, 2], 'b-', label='Actual', linewidth=2)
+
+    # 2D trajectory plot
+    ax0 = fig.add_subplot(221)
+    ax0.plot(x_all[:, 0], x_all[:, 2], 'b-', label='Actual', linewidth=2)
+    
+    if trajectory is not None:
+        # Plot reference trajectory in 2D
+        x_ref = trajectory.get_trajectory_points(t)
+        ax0.plot(x_ref[:, 0],  x_ref[:, 2], 'r--', label='Reference', linewidth=2)
+    
+    ax0.set_xlabel('X [m]')
+    ax0.set_ylabel('Z [m]')
+    #ax0.set_zlabel('Z [m]')
+    ax0.legend()
+    ax0.grid(True)
+    ax0.set_title("2D Trajectory")
+    
     # Position plot
-    ax1 = fig.add_subplot(311)
-    ax1.plot(steps, x_all[:, 0], label="x", linewidth=2)
-    ax1.plot(steps, x_all[:, 1], label="y", linewidth=2)
-    ax1.plot(steps, x_all[:, 2], label="z", linewidth=2)
-    ax1.plot(steps, [xg[0]]*nsteps, 'r--', label="x_goal")
-    ax1.plot(steps, [xg[1]]*nsteps, 'g--', label="y_goal")
-    ax1.plot(steps, [xg[2]]*nsteps, 'b--', label="z_goal")
+    ax1 = fig.add_subplot(222)
+    ax1.plot(t, x_all[:, 0], label="x", linewidth=2)
+    ax1.plot(t, x_all[:, 1], label="y", linewidth=2)
+    ax1.plot(t, x_all[:, 2], label="z", linewidth=2)
+    
+    if trajectory is not None:
+        # Plot reference trajectory
+        x_ref = trajectory.get_trajectory_points(t)
+        ax1.plot(t, x_ref[:, 0], 'r--', label="x_ref")
+        ax1.plot(t, x_ref[:, 2], 'b--', label="z_ref")
+    elif xg is not None:
+        # Plot hover reference
+        ax1.plot(t, [xg[0]]*nsteps, 'r--', label="x_goal")
+        ax1.plot(t, [xg[1]]*nsteps, 'g--', label="y_goal")
+        ax1.plot(t, [xg[2]]*nsteps, 'b--', label="z_goal")
+    
     ax1.set_ylabel('Position [m]')
     ax1.legend()
     ax1.grid(True)
     ax1.set_title("Position Trajectories")
 
     # Attitude plot
-    ax2 = fig.add_subplot(312)
-    ax2.plot(steps, x_all[:, 3:7], linewidth=2)
-    ax2.plot(steps, [xg[3]]*nsteps, 'r--')
+    ax2 = fig.add_subplot(223)
+    ax2.plot(t, x_all[:, 3:7], linewidth=2)
+    if xg is not None:
+        ax2.plot(t, [xg[3]]*nsteps, 'r--')
     ax2.set_ylabel('Quaternion')
     ax2.legend(['q0', 'q1', 'q2', 'q3'])
     ax2.grid(True)
     ax2.set_title("Attitude Trajectories")
 
     # Control inputs plot
-    ax3 = fig.add_subplot(313)
-    ax3.plot(steps, u_all, linewidth=2)
-    ax3.plot(steps, [ug[0]]*nsteps, 'k--', label="hover_thrust")
-    ax3.set_xlabel('Time steps')
+    ax3 = fig.add_subplot(224)
+    ax3.plot(t, u_all, linewidth=2)
+    if ug is not None:
+        ax3.plot(t, [ug[0]]*nsteps, 'k--', label="hover_thrust")
+    ax3.set_xlabel('Time [s]')
     ax3.set_ylabel('Motor commands')
     ax3.legend(['u1', 'u2', 'u3', 'u4'])
     ax3.grid(True)
@@ -56,6 +88,7 @@ def plot_iterations(iterations):
     plt.legend()
     plt.show()
     print(f"Total iterations: {sum(iterations)}")
+    print(f"Average iterations: {np.mean(iterations):.2f}")
 
 def plot_rho_history(rho_history):
     """Plot rho adaptation history (only for adaptive MPC)"""
@@ -67,3 +100,5 @@ def plot_rho_history(rho_history):
     plt.grid(True)
     plt.legend()
     plt.show()
+    print(f"Final rho: {rho_history[-1]:.2f}")
+    print(f"Rho range: [{min(rho_history):.2f}, {max(rho_history):.2f}]")
