@@ -1,23 +1,71 @@
-import numpy as np
+# src/rho_adapter.py
+import autograd.numpy as np
 from scipy.linalg import block_diag
+from utils.simulation import uhover, xg
+from autograd import jacobian
 
 class RhoAdapter:
-    def __init__(self, rho_base=1.0, rho_min=1.0, rho_max=10000.0, tolerance=1.1):
+    def __init__(self, rho_base=85.0, rho_min=70.0, rho_max=100.0, tolerance=1.1):
         self.rho_base = rho_base
         self.rho_min = rho_min
         self.rho_max = rho_max
         self.tolerance = tolerance
-        
-        # For analysis
         self.rho_history = []
         self.residual_history = []
+        self.derivatives = None
+
+    def initialize_derivatives(self, cache, eps=1e-4):
+        """Initialize derivatives using autodiff"""
+        print("Computing LQR sensitivity")
+        
+        def lqr_direct(rho):
+            R_rho = cache['R'] + rho * np.eye(cache['R'].shape[0])
+            A, B = cache['A'], cache['B']
+            Q = cache['Q']
+            
+            # Compute P
+            P = Q
+            for _ in range(10):
+                K = np.linalg.inv(R_rho + B.T @ P @ B) @ B.T @ P @ A
+                P = Q + A.T @ P @ (A - B @ K)
+            
+            K = np.linalg.inv(R_rho + B.T @ P @ B) @ B.T @ P @ A
+            C1 = np.linalg.inv(R_rho + B.T @ P @ B)
+            C2 = A - B @ K
+            
+            return np.concatenate([K.flatten(), P.flatten(), C1.flatten(), C2.flatten()])
+        
+        # Get derivatives using autodiff
+        m, n = cache['Kinf'].shape
+        derivs = jacobian(lqr_direct)(cache['rho'])
+        
+        # Reshape derivatives into matrices and store in cache
+        k_size = m * n
+        p_size = n * n
+        c1_size = m * m
+        c2_size = n * n
+        
+        cache['dKinf_drho'] = derivs[:k_size].reshape(m, n)
+        cache['dPinf_drho'] = derivs[k_size:k_size+p_size].reshape(n, n)
+        cache['dC1_drho'] = derivs[k_size+p_size:k_size+p_size+c1_size].reshape(m, m)
+        cache['dC2_drho'] = derivs[k_size+p_size+c1_size:].reshape(n, n)
+
+
 
     def format_matrices(self, x_prev, u_prev, v_prev, z_prev, g_prev, y_prev, cache, N):
         """Format matrices into the form needed for residual computation"""
-        nx = x_prev.shape[0]
-        nu = u_prev.shape[0]
+        nx = x_prev.shape[0]  # Should be 12
+        nu = u_prev.shape[0]  # Should be 4
         
-        # 1. Form decision variable x
+        # Reshape inputs to ensure correct dimensions
+        x_prev = x_prev.reshape(nx, -1)  # Make sure it's 2D
+        u_prev = u_prev.reshape(nu, -1)
+        v_prev = v_prev.reshape(nx, -1)
+        z_prev = z_prev.reshape(nu, -1)
+
+
+        
+        # 1. Form decision variable x (should be Nx*N + Nu*(N-1))
         x_decision = []
         for i in range(N):
             x_decision.append(x_prev[:, i].reshape(-1, 1))
@@ -63,11 +111,50 @@ class RhoAdapter:
             y_dynamics.append(g_prev[:, i].reshape(-1, 1))
         y = np.vstack([np.vstack(y_inputs), np.vstack(y_dynamics)])
 
-        return x, A, z, y
+        # 5. Form cost matrix P
+        Q = cache['Q']
+        R = cache['R']
+        P_blocks = []
+        for i in range(N):
+            if i < N-1:
+                P_block = block_diag(Q, R)
+            else:
+                P_block = Q
+            P_blocks.append(P_block)
+        P = block_diag(*P_blocks)
+
+        # 6. Form cost vector q (zero for now)
+        q_blocks = []
+        for i in range(N):
+            # For hover, reference is just xg
+            delta_x = x_prev[:, i] - xg[:12]
+            q_x = Q @ delta_x.reshape(-1, 1)
+            if i < N-1:
+                # For hover, reference input is uhover
+                delta_u = u_prev[:, i] - uhover
+                q_u = R @ delta_u.reshape(-1, 1)
+                q_blocks.extend([q_x, q_u])
+            else:
+                q_blocks.append(q_x)
+        q = np.vstack(q_blocks)
+
+        print(f"x shape: {x.shape}")
+        print(f"A shape: {A.shape}")
+        print(f"z shape: {z.shape}")
+        print(f"y shape: {y.shape}")
+        print(f"P shape: {P.shape}")
+        print(f"q shape: {q.shape}")
+
+        return x, A, z, y, P, q
+
+
+       
 
     def compute_residuals(self, x, A, z, y, P, q):
         """Compute ADMM residuals"""
         # Primal residual
+
+        
         Ax = A @ x
         r_prim = Ax - z
         pri_res = np.linalg.norm(r_prim, ord=np.inf)
@@ -87,39 +174,6 @@ class RhoAdapter:
 
         return pri_res, dual_res, pri_norm, dual_norm
 
-    def compute_taylor_terms(self, cache, eps=1e-4):
-        """Compute Taylor expansion terms for rho update"""
-        rho = cache['rho']
-        
-        def compute_lqr(rho_val):
-            R_rho = cache['R'] + rho_val * np.eye(cache['R'].shape[0])
-            A, B = cache['A'], cache['B']
-            Q = cache['Q']
-            
-            P = np.copy(Q)
-            for _ in range(10):
-                K = np.linalg.inv(R_rho + B.T @ P @ B) @ B.T @ P @ A
-                P = Q + A.T @ P @ (A - B @ K)
-            
-            K = np.linalg.inv(R_rho + B.T @ P @ B) @ B.T @ P @ A
-            C1 = np.linalg.inv(R_rho + B.T @ P @ B)
-            C2 = A - B @ K
-            
-            return K, P, C1, C2
-
-        # Compute derivatives using finite differences
-        K_plus, P_plus, C1_plus, C2_plus = compute_lqr(rho + eps)
-        K_minus, P_minus, C1_minus, C2_minus = compute_lqr(rho - eps)
-        
-        derivatives = {
-            'dKinf_drho': (K_plus - K_minus) / (2 * eps),
-            'dPinf_drho': (P_plus - P_minus) / (2 * eps),
-            'dC1_drho': (C1_plus - C1_minus) / (2 * eps),
-            'dC2_drho': (C2_plus - C2_minus) / (2 * eps)
-        }
-        
-        return derivatives
-
     def predict_rho(self, pri_res, dual_res, pri_norm, dual_norm, current_rho):
         """Predict new rho value based on residuals"""
         normalized_pri = pri_res / (pri_norm + 1e-10)
@@ -131,17 +185,17 @@ class RhoAdapter:
         self.rho_history.append(rho_new)
         return rho_new
 
-    def update_matrices(self, cache, new_rho, derivatives):
-        """Update matrices using Taylor expansion"""
+    def update_matrices(self, cache, new_rho):
+        """Update matrices using derivatives stored in cache"""
         old_rho = cache['rho']
         delta_rho = new_rho - old_rho
         
         updates = {
             'rho': new_rho,
-            'Kinf': cache['Kinf'] + delta_rho * derivatives['dKinf_drho'],
-            'Pinf': cache['Pinf'] + delta_rho * derivatives['dPinf_drho'],
-            'C1': cache['C1'] + delta_rho * derivatives['dC1_drho'],
-            'C2': cache['C2'] + delta_rho * derivatives['dC2_drho']
+            'Kinf': cache['Kinf'] + delta_rho * cache['dKinf_drho'],
+            'Pinf': cache['Pinf'] + delta_rho * cache['dPinf_drho'],
+            'C1': cache['C1'] + delta_rho * cache['dC1_drho'],
+            'C2': cache['C2'] + delta_rho * cache['dC2_drho']
         }
         
         return updates
