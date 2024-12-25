@@ -3,7 +3,11 @@ import numpy as np
 
 class TinyMPC:
     def __init__(self, input_data, Nsteps, mode=0):
+
+  
+
         # Initialize cache
+
         self.cache = {}
         self.cache['rho'] = input_data['rho']
         self.cache['A'] = input_data['A']
@@ -15,6 +19,14 @@ class TinyMPC:
         self.nx = self.cache['A'].shape[0]
         self.nu = self.cache['B'].shape[1]
         self.N = Nsteps
+
+        # Initialize all previous state variables
+        self.v_prev = np.zeros((self.nx, Nsteps))
+        self.z_prev = np.zeros((self.nu, Nsteps-1))
+        self.g_prev = np.zeros((self.nx, Nsteps))
+        self.y_prev = np.zeros((self.nu, Nsteps-1))
+        self.q_prev = np.zeros((self.nx, Nsteps))
+
 
         # Compute cache terms 
         self.compute_cache_terms()
@@ -113,13 +125,27 @@ class TinyMPC:
         status = 0
         x = np.copy(x_init)
         u = np.copy(u_init)
-        v = np.zeros(x.shape)
-        z = np.zeros(u.shape)
-        v_prev = np.zeros(x.shape)
-        z_prev = np.zeros(u.shape)
-        g = np.zeros(x.shape)
-        y = np.zeros(u.shape)
-        q = np.zeros(x.shape)
+        # v = np.zeros(x.shape)
+        # z = np.zeros(u.shape)
+        # v_prev = np.zeros(x.shape)
+        # z_prev = np.zeros(u.shape)
+        # g = np.zeros(x.shape)
+        # y = np.zeros(u.shape)
+        # q = np.zeros(x.shape)
+        # r = np.zeros(u.shape)
+        # p = np.zeros(x.shape)
+        # d = np.zeros(u.shape)
+
+        v = np.copy(self.v_prev)
+        z = np.copy(self.z_prev)
+        g = np.copy(self.g_prev)
+        y = np.copy(self.y_prev)
+        q = np.copy(self.q_prev)
+
+        # Keep track of previous values for residuals
+        v_prev = np.copy(v)
+        z_prev = np.copy(z)
+    
         r = np.zeros(u.shape)
         p = np.zeros(x.shape)
         d = np.zeros(u.shape)
@@ -148,8 +174,15 @@ class TinyMPC:
                 status = 1
                 break
 
+
         self.x_prev = x
         self.u_prev = u
+        self.v_prev = v
+        self.z_prev = z
+        self.g_prev = g
+        self.y_prev = y
+        self.q_prev = q
+
         return x, u, status, k
 
     
