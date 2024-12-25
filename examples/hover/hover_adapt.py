@@ -9,7 +9,7 @@ from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
 from src.rho_adapter import RhoAdapter
 from utils.visualization import visualize_trajectory, plot_iterations
-from utils.simulation import simulate_with_controller
+from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 
 def plot_rho_history(rho_history):
