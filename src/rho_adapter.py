@@ -1,7 +1,7 @@
 # src/rho_adapter.py
 import autograd.numpy as np
 from scipy.linalg import block_diag
-from utils.simulation import uhover, xg
+from utils.hover_simulation import uhover, xg
 from autograd import jacobian
 
 class RhoAdapter:

@@ -19,7 +19,7 @@ class QuadrotorDynamics:
         self.km = self.kt * self.thrustToTorque
         
         self.freq = 50.0
-        self.dt = 1/self.freq
+        self.dt = 1/(self.freq * 1.0)
         
         self.nx = 12
         self.nu = 4
