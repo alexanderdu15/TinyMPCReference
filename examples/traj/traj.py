@@ -57,8 +57,11 @@ def main():
         0.7, 0.7, 0.2        # angular velocity
     ])
     max_dev_u = np.array([0.1, 0.1, 0.1, 0.1])  # control bounds
-    Q = np.diag(1./max_dev_x**2)
+    Q = np.diag(1./max_dev_x**2) * 0.1
     R = np.diag(1./max_dev_u**2)
+
+    # Q = np.eye(quad.nx) * 0.01
+    # R = np.eye(quad.nu) 
 
     # Compute LQR solution for terminal cost
     def dlqr(A, B, Q, R, n_steps=500):
@@ -73,7 +76,7 @@ def main():
     # Setup MPC
     N = 25  # longer horizon for trajectory tracking
     input_data = {
-        'rho': 5.0,  # lower initial rho for trajectory tracking
+        'rho': 1.0,  # lower initial rho for trajectory tracking
         'A': A,
         'B': B,
         'Q': P_lqr,
