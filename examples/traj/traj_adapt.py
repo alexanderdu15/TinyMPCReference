@@ -39,20 +39,63 @@ def main():
     # Get linearized system
     A, B = quad.get_linearized_dynamics(xg, ug)
 
-    # Initial state (start at origin)
+    # # Initial state (start at origin)
+    # x0 = np.copy(xg)
+    # x0[0:3] = np.array([0.0, 0.0, 0.0])
+    # x0[3:7] = qg  # Start with hover attitude
+
     x0 = np.copy(xg)
-    x0[0:3] = np.array([0.0, 0.0, 0.0])
-    x0[3:7] = qg  # Start with hover attitude
+    
+    # Create trajectory instance first (moved up from later in the code)
+    amplitude = 0.25
+    w = 2*np.pi/7
+
+    trajectory = Figure8Reference(A =amplitude, w = w)
+    
+    # Get the initial reference point (t=0)
+    x_ref_0 = trajectory.generate_reference(0.0)
+
+
+    
+    # Set initial position and velocity to match reference
+    x0[0:3] = x_ref_0[0:3]      # Initial position from reference
+        # Correctly assign velocities
+    
+    
+    x0[3:7] = qg                 
+    x0[7] = x_ref_0[6]  # x velocity
+    x0[8] = 0.0
+    x0[9] = x_ref_0[8]  # z velocity
+    x0[10:13] = np.zeros(3)      # Zero angular velocity
+
+
+    # Debug prints
+    print("\nInitial reference state:")
+    print(f"Position: {x_ref_0[0:3]}")
+    print(f"Reference velocities: vx={x_ref_0[6]:.3f}, vy={x_ref_0[7]:.3f}, vz={x_ref_0[8]:.3f}")
+    
+    print("\nInitial quadrotor state:")
+    print(f"Position: {x0[0:3]}")
+    print(f"Set velocities: vx={x0[7]:.3f}, vy={x0[8]:.3f}, vz={x0[9]:.3f}")
+
+
+    
+
+
+
+
+
+
 
     # Cost matrices (tuned for trajectory tracking)
     max_dev_x = np.array([
         0.1, 0.1, 0.1,    # position (tighter bounds)
-        0.5, 0.5, 0.05,      # attitude
+        0.5, 0.5, 0.5,      # attitude
         0.5, 0.5, 0.5,       # velocity
         0.7, 0.7, 0.2        # angular velocity
     ])
-    max_dev_u = np.array([0.1, 0.1, 0.1, 0.1])  # control bounds
-    Q = np.diag(1./max_dev_x**2) * 0.1
+    max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])  # control bounds
+    Q = np.diag(1./max_dev_x**2) * 2.0
     R = np.diag(1./max_dev_u**2)
     # 
     # Q = np.eye(quad.nx) * 0.01
@@ -69,7 +112,7 @@ def main():
     K_lqr, P_lqr = dlqr(A, B, Q, R)
 
     # Setup MPC with adaptive rho
-    N = 25  # longer horizon for trajectory tracking
+    N = 50  # longer horizon for trajectory tracking
     initial_rho =  1.0
     input_data = {
         'rho': initial_rho,
@@ -89,8 +132,10 @@ def main():
     x_min = [-5.0] * 3 + [-2.0] * 9
     mpc.set_bounds(u_max, u_min, x_max, x_min)
 
-    # Create trajectory reference
-    trajectory = Figure8Reference()
+    #Create trajectory reference
+    # A = 0.25
+    # w = 2*np.pi/4
+    # trajectory = Figure8Reference(A, w)
     x_nom = np.zeros((quad.nx, mpc.N))
     u_nom = np.zeros((quad.nu, mpc.N-1))
     for i in range(mpc.N):
