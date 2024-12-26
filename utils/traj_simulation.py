@@ -30,8 +30,8 @@ def delta_x_quat(x_curr, x_ref=None):
     else:
         # Trajectory following case
         pos_ref = x_ref[0:3]
-        vel_ref = x_ref[6:9]  # Changed from 7:10 to 6:9
-        omg_ref = x_ref[9:12]  # Changed from 10:13 to 9:12
+        vel_ref = x_ref[6:9]
+        omg_ref = x_ref[9:12]
         q_ref = np.array([1.0, 0.0, 0.0, 0.0])  # Assume upright orientation
     
     phi = QuadrotorDynamics.qtorp(QuadrotorDynamics.L(q_ref).T @ q)
@@ -63,18 +63,44 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc, t=None, trajectory=None):
 
     return uhover+u_out[:,0], k
 
-def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, NSIM=400):
-    """Simulation loop for trajectory tracking"""
+def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, rho_adapter=None, NSIM=400):
+    """Simulation loop for trajectory tracking with optional rho adaptation"""
     x_all = []
     u_all = []
     x_curr = np.copy(x0)
     iterations = []
+    rho_history = []
+    
+    # Initialize derivatives if rho_adapter is provided
+    if rho_adapter is not None:
+        rho_adapter.initialize_derivatives(mpc.cache)
     
     for i in range(NSIM):
         t = i * quad.dt
         
         # Run MPC step with provided nominal trajectory
         u_curr, iters = tinympc_controller(x_curr, x_nom, u_nom, mpc, t, trajectory)
+        
+        # Update rho if adapter is provided
+        if rho_adapter is not None:
+            # Format matrices for residual computation
+            x, A, z, y, P, q = rho_adapter.format_matrices(
+                mpc.x_prev, mpc.u_prev, mpc.v_prev, mpc.z_prev,
+                mpc.g_prev, mpc.y_prev, mpc.cache, mpc.N
+            )
+            
+            # Compute residuals
+            pri_res, dual_res, pri_norm, dual_norm = rho_adapter.compute_residuals(
+                x, A, z, y, P, q
+            )
+            
+            # Update rho using pre-computed derivatives
+            new_rho = rho_adapter.predict_rho(
+                pri_res, dual_res, pri_norm, dual_norm, mpc.cache['rho']
+            )
+            updates = rho_adapter.update_matrices(mpc.cache, new_rho)
+            mpc.cache.update(updates)
+            rho_history.append(new_rho)
         
         # Simulate system
         x_curr = quad.dynamics_rk4(x_curr, u_curr)
@@ -83,4 +109,7 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, NSIM=400):
         u_all.append(u_curr)
         iterations.append(iters)
     
-    return np.array(x_all), np.array(u_all), iterations
+    if rho_adapter is not None:
+        return np.array(x_all), np.array(u_all), iterations, rho_history
+    else:
+        return np.array(x_all), np.array(u_all), iterations
