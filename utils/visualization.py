@@ -10,44 +10,39 @@ def visualize_trajectory(x_all, u_all, xg=None, ug=None, trajectory=None, dt=0.0
     nsteps = len(x_all)
     t = np.arange(nsteps) * dt
 
+    # Get reference trajectory once if it exists
+    if trajectory is not None:
+        x_ref = trajectory.get_trajectory_points(t)
+
     fig = plt.figure(figsize=(15, 12))
     
-    # 3D trajectory plot
-    # ax0 = fig.add_subplot(221, projection='3d')
-    # ax0.plot3D(x_all[:, 0], x_all[:, 1], x_all[:, 2], 'b-', label='Actual', linewidth=2)
-
     # 2D trajectory plot
     ax0 = fig.add_subplot(221)
     ax0.plot(x_all[:, 0], x_all[:, 2], 'b-', label='Actual', linewidth=2)
     
     if trajectory is not None:
-        # Plot reference trajectory in 2D
-        x_ref = trajectory.get_trajectory_points(t)
-        ax0.plot(x_ref[:, 0],  x_ref[:, 2], 'r--', label='Reference', linewidth=2)
+        ax0.plot(x_ref[:, 0], x_ref[:, 2], 'r--', label='Reference', linewidth=2)
     
     ax0.set_xlabel('X [m]')
     ax0.set_ylabel('Z [m]')
-    #ax0.set_zlabel('Z [m]')
     ax0.legend()
     ax0.grid(True)
     ax0.set_title("2D Trajectory")
     
     # Position plot
     ax1 = fig.add_subplot(222)
-    ax1.plot(t, x_all[:, 0], label="x", linewidth=2)
-    ax1.plot(t, x_all[:, 1], label="y", linewidth=2)
-    ax1.plot(t, x_all[:, 2], label="z", linewidth=2)
+    ax1.plot(t, x_all[:, 0], 'b-', label="x", linewidth=2)
+    ax1.plot(t, x_all[:, 1], 'g-', label="y", linewidth=2)
+    ax1.plot(t, x_all[:, 2], 'r-', label="z", linewidth=2)
     
     if trajectory is not None:
-        # Plot reference trajectory
-        x_ref = trajectory.get_trajectory_points(t)
-        ax1.plot(t, x_ref[:, 0], 'r--', label="x_ref")
-        ax1.plot(t, x_ref[:, 2], 'b--', label="z_ref")
+        # Use same reference trajectory data
+        ax1.plot(t, x_ref[:, 0], 'b--', label="x_ref")
+        ax1.plot(t, x_ref[:, 2], 'r--', label="z_ref")
     elif xg is not None:
-        # Plot hover reference
-        ax1.plot(t, [xg[0]]*nsteps, 'r--', label="x_goal")
+        ax1.plot(t, [xg[0]]*nsteps, 'b--', label="x_goal")
         ax1.plot(t, [xg[1]]*nsteps, 'g--', label="y_goal")
-        ax1.plot(t, [xg[2]]*nsteps, 'b--', label="z_goal")
+        ax1.plot(t, [xg[2]]*nsteps, 'r--', label="z_goal")
     
     ax1.set_ylabel('Position [m]')
     ax1.legend()

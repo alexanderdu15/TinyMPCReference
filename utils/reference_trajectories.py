@@ -1,32 +1,22 @@
 import numpy as np
 
 class Figure8Reference:
-    def __init__(self, A=0.5, w=2*np.pi/5):
+    def __init__(self, A=0.5, w=2*np.pi/4):
         self.A = A
         self.w = w
 
     def generate_reference(self, t):
-        """Generate figure-8 reference with smooth start"""
-        # Convert t to float to avoid array operations
+        """Generate reference with smooth start for control"""
         t = float(t)
-        
-        # Smooth start factor (ramps up in first second)
-        smooth_start = np.minimum(t/1.0, 1.0)  # using np.minimum instead of min
+        smooth_start = np.minimum(t/1.0, 1.0)
         
         x_ref = np.zeros(12)
-        
-        # Positions with smooth start
         x_ref[0] = self.A * np.sin(self.w*t) * smooth_start
         x_ref[2] = self.A * np.sin(2*self.w*t)/2 * smooth_start
-        
-        # Velocities (derivatives with smooth start)
         x_ref[6] = self.A * self.w * np.cos(self.w*t) * smooth_start 
         x_ref[8] = self.A * self.w * np.cos(2*self.w*t) * smooth_start
-        
-        # Zero attitude and angular velocity
         x_ref[3:6] = np.zeros(3)
         x_ref[9:12] = np.zeros(3)
-        
         return x_ref
 
     def get_final_reference(self, t):
@@ -38,5 +28,10 @@ class Figure8Reference:
         }
 
     def get_trajectory_points(self, t_array):
-        """Get array of reference points for visualization"""
-        return np.array([self.generate_reference(float(t)) for t in t_array])
+        """Get pure figure-8 points for visualization (no smooth start)"""
+        points = np.zeros((len(t_array), 12))
+        for i, t in enumerate(t_array):
+            t = float(t)
+            points[i, 0] = self.A * np.sin(self.w*t)
+            points[i, 2] = self.A * np.sin(2*self.w*t)/2
+        return points
