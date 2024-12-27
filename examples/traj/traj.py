@@ -51,9 +51,9 @@ def main():
 
     x0 = np.copy(xg)
     
-    # Create trajectory instance first (moved up from later in the code)
-    amplitude = 0.25
-    w = 2*np.pi/7
+    
+    amplitude = 0.5
+    w = 2*np.pi/2.5
 
     trajectory = Figure8Reference(A =amplitude, w = w)
     
@@ -81,7 +81,7 @@ def main():
         0.7, 0.7, 0.2        # angular velocity
     ])
     max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])  # control bounds
-    Q = np.diag(1./max_dev_x**2) * 2.0
+    Q = np.diag(1./max_dev_x**2) 
     R = np.diag(1./max_dev_u**2)
 
     # Q = np.eye(quad.nx) * 0.01
@@ -98,7 +98,7 @@ def main():
     K_lqr, P_lqr = dlqr(A, B, Q, R)
 
     # Setup MPC
-    N = 50  # longer horizon for trajectory tracking
+    N = 25  # longer horizon for trajectory tracking
     input_data = {
         'rho': 1.0,  # lower initial rho for trajectory tracking
         'A': A,
@@ -122,7 +122,7 @@ def main():
 
 
     # Create trajectory reference
-    trajectory = Figure8Reference()
+    #trajectory = Figure8Reference()
     x_nom = np.zeros((quad.nx, mpc.N))
     u_nom = np.zeros((quad.nu, mpc.N-1))
     for i in range(mpc.N):
@@ -139,6 +139,7 @@ def main():
             mpc=mpc,
             quad=quad,
             trajectory=trajectory,
+            rho_adapter=None,
             NSIM=400
         )
 

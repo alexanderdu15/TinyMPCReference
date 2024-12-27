@@ -46,9 +46,9 @@ def main():
 
     x0 = np.copy(xg)
     
-    # Create trajectory instance first (moved up from later in the code)
-    amplitude = 0.25
-    w = 2*np.pi/7
+    
+    amplitude = 0.5
+    w = 2*np.pi/2.5
 
     trajectory = Figure8Reference(A =amplitude, w = w)
     
@@ -69,22 +69,14 @@ def main():
     x0[10:13] = np.zeros(3)      # Zero angular velocity
 
 
-    # Debug prints
-    print("\nInitial reference state:")
-    print(f"Position: {x_ref_0[0:3]}")
-    print(f"Reference velocities: vx={x_ref_0[6]:.3f}, vy={x_ref_0[7]:.3f}, vz={x_ref_0[8]:.3f}")
+    # # Debug prints
+    # print("\nInitial reference state:")
+    # print(f"Position: {x_ref_0[0:3]}")
+    # print(f"Reference velocities: vx={x_ref_0[6]:.3f}, vy={x_ref_0[7]:.3f}, vz={x_ref_0[8]:.3f}")
     
-    print("\nInitial quadrotor state:")
-    print(f"Position: {x0[0:3]}")
-    print(f"Set velocities: vx={x0[7]:.3f}, vy={x0[8]:.3f}, vz={x0[9]:.3f}")
-
-
-    
-
-
-
-
-
+    # print("\nInitial quadrotor state:")
+    # print(f"Position: {x0[0:3]}")
+    # print(f"Set velocities: vx={x0[7]:.3f}, vy={x0[8]:.3f}, vz={x0[9]:.3f}")
 
 
     # Cost matrices (tuned for trajectory tracking)
@@ -95,7 +87,7 @@ def main():
         0.7, 0.7, 0.2        # angular velocity
     ])
     max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])  # control bounds
-    Q = np.diag(1./max_dev_x**2) * 2.0
+    Q = np.diag(1./max_dev_x**2) 
     R = np.diag(1./max_dev_u**2)
     # 
     # Q = np.eye(quad.nx) * 0.01
@@ -112,7 +104,7 @@ def main():
     K_lqr, P_lqr = dlqr(A, B, Q, R)
 
     # Setup MPC with adaptive rho
-    N = 50  # longer horizon for trajectory tracking
+    N = 25  # longer horizon for trajectory tracking
     initial_rho =  1.0
     input_data = {
         'rho': initial_rho,
