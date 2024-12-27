@@ -8,6 +8,21 @@ from src.tinympc import TinyMPC
 from utils.visualization import visualize_trajectory, plot_iterations
 from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
+import matplotlib.pyplot as plt
+
+def compute_hover_error(x_all, xg):
+    """Compute L2 tracking error over the hover trajectory"""
+    errors = []
+    
+    for x in x_all:
+        # Compute position error (L2 norm of position difference)
+        pos_error = np.linalg.norm(x[0:3] - xg[0:3])
+        errors.append(pos_error)
+    
+    # Compute average and max error
+    avg_error = np.mean(errors)
+    max_error = np.max(errors)
+    return avg_error, max_error, errors
 
 def main():
     # Create quadrotor instance
@@ -76,12 +91,31 @@ def main():
     # Run simulation
     x_all, u_all, iterations = simulate_with_controller(x0, x_nom, u_nom, mpc, quad)
 
+    # Compute tracking error
+    avg_error, max_error, errors = compute_hover_error(x_all, xg)
+    print("\nTracking Error Statistics:")
+    print(f"Average L2 Error: {avg_error:.4f} meters")
+    print(f"Maximum L2 Error: {max_error:.4f} meters")
+
     # Save iterations
     np.savetxt('../data/iterations/normal_hover.txt', iterations)
 
     # Visualize results
     visualize_trajectory(x_all, u_all, xg, ug)
     plot_iterations(iterations)
+
+    # Plot tracking error
+    plt.figure(figsize=(10, 4))
+    plt.plot(np.arange(len(errors))*quad.dt, errors)
+    plt.xlabel('Time [s]')
+    plt.ylabel('L2 Position Error [m]')
+    plt.title('Hover Error over Time')
+    plt.grid(True)
+    plt.show()
+
+    print("\nSimulation completed successfully!")
+    print(f"Average iterations per step: {np.mean(iterations):.2f}")
+    print(f"Total iterations: {sum(iterations)}")
 
 if __name__ == "__main__":
     main()

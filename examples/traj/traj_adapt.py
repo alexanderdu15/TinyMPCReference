@@ -145,7 +145,7 @@ def main():
             quad=quad,
             trajectory=trajectory,
             rho_adapter=rho_adapter,
-            NSIM=400
+            NSIM=150
         )
 
         # Compute tracking error
