@@ -12,6 +12,20 @@ from utils.visualization import visualize_trajectory, plot_iterations
 from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 
+def compute_hover_error(x_all, xg):
+    """Compute L2 tracking error over the hover trajectory"""
+    errors = []
+    
+    for x in x_all:
+        # Compute position error (L2 norm of position difference)
+        pos_error = np.linalg.norm(x[0:3] - xg[0:3])
+        errors.append(pos_error)
+    
+    # Compute average and max error
+    avg_error = np.mean(errors)
+    max_error = np.max(errors)
+    return avg_error, max_error, errors
+
 def plot_rho_history(rho_history):
     """Plot the history of rho values"""
     plt.figure(figsize=(10, 5))
@@ -93,6 +107,12 @@ def main():
             x0, x_nom, u_nom, mpc, quad, rho_adapter, NSIM=100
         )
 
+        # Compute tracking error
+        avg_error, max_error, errors = compute_hover_error(x_all, xg)
+        print("\nTracking Error Statistics:")
+        print(f"Average L2 Error: {avg_error:.4f} meters")
+        print(f"Maximum L2 Error: {max_error:.4f} meters")
+
         # Create data directory if it doesn't exist
         Path('../data/iterations').mkdir(parents=True, exist_ok=True)
         Path('../data/rho_history').mkdir(parents=True, exist_ok=True)
@@ -111,6 +131,15 @@ def main():
         visualize_trajectory(x_all, u_all, xg, ug)
         plot_iterations(iterations)
         plot_rho_history(rho_history)
+
+        # Plot tracking error
+        plt.figure(figsize=(10, 4))
+        plt.plot(np.arange(len(errors))*quad.dt, errors)
+        plt.xlabel('Time [s]')
+        plt.ylabel('L2 Position Error [m]')
+        plt.title('Hover Error over Time')
+        plt.grid(True)
+        plt.show()
 
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
