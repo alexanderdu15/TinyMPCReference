@@ -2,41 +2,64 @@
 import numpy as np
 
 class TinyMPC:
-    def __init__(self, input_data, Nsteps, mode=0):
-
-  
-
-        # Initialize cache
-
-        self.cache = {}
-        self.cache['rho'] = input_data['rho']
-        self.cache['A'] = input_data['A']
-        self.cache['B'] = input_data['B']
-        self.cache['Q'] = input_data['Q']
-        self.cache['R'] = input_data['R']
-
+    def __init__(self, A, B, Q, R, Nsteps, rho=1.0, n_dlqr_steps=500, rho_adapter=None):
+        """Initialize TinyMPC with direct system matrices and compute DLQR automatically
+        
+        Args:
+            A (np.ndarray): System dynamics matrix
+            B (np.ndarray): Input matrix
+            Q (np.ndarray): State cost matrix
+            R (np.ndarray): Input cost matrix
+            Nsteps (int): Horizon length
+            rho (float): Initial rho value
+            n_dlqr_steps (int): Number of steps for DLQR computation
+            rho_adapter (object): Rho adapter object
+        """
+        # Add rho_adapter as class attribute
+        self.rho_adapter = rho_adapter
+        if self.rho_adapter:
+            self.rho_adapter.initialize_derivatives(self.cache)
         # Get dimensions
-        self.nx = self.cache['A'].shape[0]
-        self.nu = self.cache['B'].shape[1]
+        self.nx = A.shape[0]
+        self.nu = B.shape[1]
         self.N = Nsteps
 
-        # Initialize all previous state variables
-        self.v_prev = np.zeros((self.nx, Nsteps))
-        self.z_prev = np.zeros((self.nu, Nsteps-1))
-        self.g_prev = np.zeros((self.nx, Nsteps))
-        self.y_prev = np.zeros((self.nu, Nsteps-1))
-        self.q_prev = np.zeros((self.nx, Nsteps))
+        # Compute DLQR solution for terminal cost
+        P_lqr = self._compute_dlqr(A, B, Q, R, n_dlqr_steps)
 
+        # Initialize cache with computed values
+        self.cache = {
+            'rho': rho,
+            'A': A,
+            'B': B,
+            'Q': P_lqr,  # Use DLQR solution for terminal cost
+            'R': R
+        }
+
+        # Initialize state variables
+        self.v_prev = np.zeros((self.nx, self.N))
+        self.z_prev = np.zeros((self.nu, self.N-1))
+        self.g_prev = np.zeros((self.nx, self.N))
+        self.y_prev = np.zeros((self.nu, self.N-1))
+        self.q_prev = np.zeros((self.nx, self.N))
+        
+        # Initialize previous solutions for warm start
+        self.x_prev = np.zeros((self.nx, self.N))
+        self.u_prev = np.zeros((self.nu, self.N-1))
 
         # Compute cache terms 
         self.compute_cache_terms()
         
         # Set default tolerances and iterations
         self.set_tols_iters()
-        
-        # Initialize previous solutions for warm start
-        self.x_prev = np.zeros((self.nx, Nsteps))
-        self.u_prev = np.zeros((self.nu, Nsteps-1))
+
+    def _compute_dlqr(self, A, B, Q, R, n_steps):
+        """Compute Discrete-time LQR solution"""
+        P = Q
+        for _ in range(n_steps):
+            K = np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
+            P = Q + A.T @ P @ (A - B @ K)
+        return P
 
     def compute_cache_terms(self):
         """Compute and cache terms for ADMM"""
@@ -89,8 +112,6 @@ class TinyMPC:
             v[:, k] = np.clip(x[:, k] + g[:, k], self.xmin, self.xmax)
         v[:, self.N-1] = np.clip(x[:, self.N-1] + g[:, self.N-1], self.xmin, self.xmax)
 
-
-
     def update_dual(self, y, g, u, x, z, v):
         for k in range(self.N - 1):
             y[:, k] += u[:, k] - z[:, k]
@@ -120,6 +141,31 @@ class TinyMPC:
         self.max_iter = max_iter
         self.abs_pri_tol = abs_pri_tol
         self.abs_dua_tol = abs_dua_tol
+
+    def update_rho(self):
+        """Update rho using the adapter if provided"""
+        if self.rho_adapter is None:
+            return None
+
+        # Format matrices for residual computation
+        x, A, z, y, P, q = self.rho_adapter.format_matrices(
+            self.x_prev, self.u_prev, self.v_prev, self.z_prev,
+            self.g_prev, self.y_prev, self.cache, self.N
+        )
+        
+        # Compute residuals
+        pri_res, dual_res, pri_norm, dual_norm = self.rho_adapter.compute_residuals(
+            x, A, z, y, P, q
+        )
+        
+        # Update rho using pre-computed derivatives
+        new_rho = self.rho_adapter.predict_rho(
+            pri_res, dual_res, pri_norm, dual_norm, self.cache['rho']
+        )
+        updates = self.rho_adapter.update_matrices(self.cache, new_rho)
+        self.cache.update(updates)
+        
+        return new_rho
 
     def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None):
         status = 0
