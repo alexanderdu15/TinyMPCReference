@@ -45,20 +45,27 @@ class QuadrotorDynamics:
 
         return np.hstack([dr, dq, dv, domg])
 
-    def dynamics_rk4(self, x, u):
-        """Discrete-time dynamics using RK4 integration"""
-        f1 = self.dynamics(x, u)
-        f2 = self.dynamics(x + 0.5*self.dt*f1, u)
-        f3 = self.dynamics(x + 0.5*self.dt*f2, u)
-        f4 = self.dynamics(x + self.dt*f3, u)
+    def dynamics_rk4(self, x, u, dt=None):
+        """RK4 integration of dynamics with optional dt parameter"""
+        if dt is None:
+            dt = self.dt
+            
+        # RK4 integration
+        k1 = self.dynamics(x, u)
+        k2 = self.dynamics(x + dt/2 * k1, u)
+        k3 = self.dynamics(x + dt/2 * k2, u)
+        k4 = self.dynamics(x + dt * k3, u)
         
-        xn = x + (self.dt/6.0)*(f1 + 2*f2 + 2*f3 + f4)
-        # Instead of item assignment, use concatenation
+        # Integrate
+        xn = x + (dt/6.0)*(k1 + 2*k2 + 2*k3 + k4)
+        
+        # Return with normalized quaternion
         return np.concatenate([
-            xn[0:3], 
-            xn[3:7]/norm(xn[3:7]),  # normalized quaternion
+            xn[0:3],
+            xn[3:7]/np.linalg.norm(xn[3:7]),  # normalized quaternion
             xn[7:13]
         ])
+          
 
     def get_linearized_dynamics(self, x_ref, u_ref):
         """Get linearized dynamics matrices around reference point"""
