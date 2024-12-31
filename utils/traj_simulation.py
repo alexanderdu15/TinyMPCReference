@@ -19,8 +19,6 @@ Nx = quad.nx
 
 def delta_x_quat(x_curr, x_ref=None):
     """Compute state error, either from hover or trajectory reference"""
-    q = x_curr[3:7]
-    
     if x_ref is None:
         # Hover case
         pos_ref = rg
@@ -30,17 +28,35 @@ def delta_x_quat(x_curr, x_ref=None):
     else:
         # Trajectory following case
         pos_ref = x_ref[0:3]
-        vel_ref = x_ref[6:9]
+        vel_ref = x_ref[6:9]  # Note: Make sure these indices match reference generation
         omg_ref = x_ref[9:12]
-        q_ref = np.array([1.0, 0.0, 0.0, 0.0])  # Assume upright orientation
+        q_ref = qg 
     
+    # Current state
+    q = x_curr[3:7]/np.linalg.norm(x_curr[3:7])  # Normalize quaternion
+    
+    # Compute attitude error in reduced form (3D)
     phi = QuadrotorDynamics.qtorp(QuadrotorDynamics.L(q_ref).T @ q)
+    
+    # Compute full error state
     delta_x = np.hstack([
-        x_curr[0:3] - pos_ref,
-        phi,
-        x_curr[7:10] - vel_ref,
-        x_curr[10:13] - omg_ref
+        x_curr[0:3] - pos_ref,    # Position error
+        phi,                       # Attitude error (reduced)
+        x_curr[7:10] - vel_ref,   # Velocity error
+        x_curr[10:13] - omg_ref   # Angular velocity error
     ])
+    
+
+    
+    # Add debug prints
+    print("\nError Computation Debug:")
+    print(f"Current position: {x_curr[0:3]}")
+    print(f"Reference position: {x_ref[0:3]}")
+    print(f"Position error: {x_curr[0:3] - x_ref[0:3]}")
+    print(f"Current velocity: {x_curr[7:10]}")
+    print(f"Reference velocity: {x_ref[6:9]}")
+    print(f"Velocity error: {x_curr[7:10] - x_ref[6:9]}")
+    
     return delta_x
 
 def tinympc_controller(x_curr, x_nom, u_nom, mpc, t=None, trajectory=None):
@@ -48,68 +64,69 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc, t=None, trajectory=None):
     # Generate current reference for error computation
     x_ref = trajectory.generate_reference(t)
     
-    # Compute error
+    # Compute error state
     delta_x = delta_x_quat(x_curr, x_ref)
-    delta_x_noise = delta_x
-
-    # Initialize MPC problem
+    
+    # Initialize MPC problem with zero reference since we're in error coordinates
     x_init = np.copy(mpc.x_prev)
-    x_init[:,0] = delta_x_noise
+    x_init[:,0] = delta_x
     u_init = np.copy(mpc.u_prev)
+    
+    # Solve MPC with zero reference (since we're already in error coordinates)
+    x_out, u_out, status, k = mpc.solve_admm(x_init, u_init) 
+    
+    # Get nominal control
+    u_nominal = trajectory.compute_nominal_control(t, quad)
+    
+    # Debug prints
+    print("\nMPC Debug:")
+    print(f"Error state: {delta_x}")
+    print(f"MPC correction: {u_out[:,0]}")
+    print(f"Nominal control: {u_nominal}")
+    
+    # Combine nominal and correction terms
+    u_total = u_nominal + u_out[:,0]
+    
+    return u_total, k
 
-    # Solve MPC using provided nominal trajectory
-    x_out, u_out, status, k = mpc.solve_admm(x_init, u_init, x_nom, u_nom)
-    print(f"Solved with status {status} and k {k}")
-
-    return uhover+u_out[:,0], k
-
-def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, rho_adapter=None, NSIM=400):
-    """Simulation loop for trajectory tracking with optional rho adaptation"""
+def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, NSIM=400, n_sim_steps=4):
     x_all = []
     u_all = []
     x_curr = np.copy(x0)
     iterations = []
-    rho_history = []
+    rho_history = [] if mpc.rho_adapter is not None else None
+    current_time = 0.0
     
-    # Initialize derivatives if rho_adapter is provided
-    if rho_adapter is not None:
-        rho_adapter.initialize_derivatives(mpc.cache)
-    
+    dt_sim = quad.dt / n_sim_steps
+
     for i in range(NSIM):
-        t = i * quad.dt
+        # Get current nominal trajectory point
+        x_ref = trajectory.generate_reference(current_time)
         
-        # Run MPC step with provided nominal trajectory
-        u_curr, iters = tinympc_controller(x_curr, x_nom, u_nom, mpc, t, trajectory)
+        # Update nominal trajectory
+        for j in range(mpc.N):
+            future_time = current_time + j*quad.dt
+            x_nom[:,j] = trajectory.generate_reference(future_time)
+            if j < mpc.N-1:
+                u_nom[:,j] = trajectory.compute_nominal_control(future_time, quad)
         
-        # Update rho if adapter is provided
-        if rho_adapter is not None:
-            # Format matrices for residual computation
-            x, A, z, y, P, q = rho_adapter.format_matrices(
-                mpc.x_prev, mpc.u_prev, mpc.v_prev, mpc.z_prev,
-                mpc.g_prev, mpc.y_prev, mpc.cache, mpc.N
-            )
-            
-            # Compute residuals
-            pri_res, dual_res, pri_norm, dual_norm = rho_adapter.compute_residuals(
-                x, A, z, y, P, q
-            )
-            
-            # Update rho using pre-computed derivatives
-            new_rho = rho_adapter.predict_rho(
-                pri_res, dual_res, pri_norm, dual_norm, mpc.cache['rho']
-            )
-            updates = rho_adapter.update_matrices(mpc.cache, new_rho)
-            mpc.cache.update(updates)
-            rho_history.append(new_rho)
+        # Run MPC step
+        u_curr, iters = tinympc_controller(x_curr, x_nom, u_nom, mpc, current_time, trajectory)
         
-        # Simulate system
-        x_curr = quad.dynamics_rk4(x_curr, u_curr)
+        # Simulate
+        for _ in range(n_sim_steps):
+            x_curr = quad.dynamics_rk4(x_curr, u_curr, dt=dt_sim)
+            current_time += dt_sim
         
         x_all.append(x_curr)
         u_all.append(u_curr)
         iterations.append(iters)
-    
-    if rho_adapter is not None:
+        
+        if mpc.rho_adapter is not None:
+            new_rho = mpc.update_rho()
+            rho_history.append(new_rho)
+
+    if mpc.rho_adapter is not None:
         return np.array(x_all), np.array(u_all), iterations, rho_history
     else:
         return np.array(x_all), np.array(u_all), iterations
