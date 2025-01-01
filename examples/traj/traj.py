@@ -43,32 +43,38 @@ def main(use_rho_adaptation=False):
     
     # Trajectory parameters
     amplitude = 0.5
-    w = 2*np.pi/2.5
+    w = 2*np.pi/4.0
     trajectory = Figure8Reference(A=amplitude, w=w)
     
     # Get the initial reference point and set initial state
     x_ref_0 = trajectory.generate_reference(0.0)
-    x0[0:3] = x_ref_0[0:3]
-    x0[3:7] = qg
-    x0[7] = x_ref_0[6]
-    x0[8] = 0.0
-    x0[9] = x_ref_0[8]
-    x0[10:13] = np.zeros(3)
+    x0[0:3] = x_ref_0[0:3]     # Position
+    x0[3:7] = qg               # Level quaternion
+    x0[7:10] = x_ref_0[6:9]    # All velocities (not just x and z)
+    x0[10:13] = np.zeros(3)    # Zero angular velocity
+
+    # Debug print to verify initial state
+    print("\nInitial State:")
+    print(f"Position: {x0[0:3]}")
+    print(f"Quaternion: {x0[3:7]}")
+    print(f"Velocity: {x0[7:10]}")
+    print(f"Angular velocity: {x0[10:13]}")
 
     # Cost matrices
     max_dev_x = np.array([
-        0.1, 0.1, 0.1,    # position
-        0.5, 0.5, 0.5,    # attitude
-        0.5, 0.5, 0.5,    # velocity
-        0.7, 0.7, 0.2     # angular velocity
+        0.01, 0.01, 0.01,    # position (tighter)
+        0.5, 0.5, 0.05,      # attitude 
+        0.5, 0.5, 0.5,       # velocity
+        0.7, 0.7, 0.5        # angular velocity
     ])
-    max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])
-    Q = np.diag(1./max_dev_x**2)
-    R = np.diag(1./max_dev_u**2)
+    max_dev_u = np.array([0.1, 0.1, 0.1, 0.1])
 
-    # Setup MPC
-    N = 25
-    initial_rho = 1.0
+    Q = np.diag(1.0 / (max_dev_x**2))  # Much higher position weights
+    R = np.diag(1.0 / (max_dev_u**2))
+
+    # Setup PC
+    N = 20
+    initial_rho = 5.0
     
     # Initialize MPC
     mpc = TinyMPC(
@@ -78,26 +84,52 @@ def main(use_rho_adaptation=False):
         R=R,
         Nsteps=N,
         rho=initial_rho
+        
     )
 
-    # Initialize rho adapter if needed
-    rho_adapter = None
+   
     if use_rho_adaptation:
-        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=1.0, rho_max=20.0)
+        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=0.1, rho_max=20.0)
+        mpc.rho_adapter = rho_adapter
+        mpc.rho_adapter.initialize_derivatives(mpc.cache)
+       
 
-    # Set bounds
-    u_max = [1.0-ug[0]] * quad.nu
-    u_min = [-ug[0]] * quad.nu
-    x_max = [5.0] * 3 + [2.0] * 9
-    x_min = [-5.0] * 3 + [-2.0] * 9
+    # Set bounds relative to hover thrust
+    u_max = np.array([0.3] * quad.nu)  # Allow 30% above hover
+    u_min = np.array([-0.3] * quad.nu)  # Allow 30% below hover
+    x_max = [2.0] * 3 + [1.0] * 3 + [2.0] * 3 + [2.0] * 3  # [pos, att, vel, omega]
+    x_min = [-x for x in x_max]
     mpc.set_bounds(u_max, u_min, x_max, x_min)
 
-    # Create trajectory reference
+    # Create trajectory reference (keep your original parameters)
     x_nom = np.zeros((quad.nx, mpc.N))
+    #u_nom = np.zeros((quad.nu, mpc.N-1))
     u_nom = np.zeros((quad.nu, mpc.N-1))
+
+    
+    # Initialize with proper timing
+    t0 = 0.0
     for i in range(mpc.N):
-        x_nom[:,i] = trajectory.generate_reference(i*quad.dt)
+        t = t0 + i*quad.dt
+        x_ref = trajectory.generate_reference(t)
+        print(f"Initial trajectory point {i}: {x_ref[0:3]}")
+        x_nom[:,i] = x_ref
+
+
+    u_nom = np.zeros((quad.nu, mpc.N-1))
     u_nom[:] = ug.reshape(-1,1)
+
+    
+    t0 = 0.0
+    for i in range(mpc.N-1):
+        t = t0 + i*quad.dt
+        u_nom[:,i] = trajectory.compute_nominal_control(t, quad)
+
+    # Debug prints
+    print("\nNominal control check:")
+    print(f"Hover thrust: {quad.hover_thrust}")
+    print(f"Initial u_nom: {u_nom[:,0]}")
+    print(f"Mid-horizon u_nom: {u_nom[:,mpc.N//2]}")
 
     # Run simulation
     try:
@@ -109,8 +141,9 @@ def main(use_rho_adaptation=False):
             mpc=mpc,
             quad=quad,
             trajectory=trajectory,
-            rho_adapter=rho_adapter,
-            NSIM=150 
+            dt_sim=0.01,
+            dt_mpc=quad.dt,
+            NSIM=250
         )
 
         # Unpack results based on whether we're using rho adaptation
