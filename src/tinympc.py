@@ -15,10 +15,6 @@ class TinyMPC:
             n_dlqr_steps (int): Number of steps for DLQR computation
             rho_adapter (object): Rho adapter object
         """
-        # Add rho_adapter as class attribute
-        self.rho_adapter = rho_adapter
-        if self.rho_adapter:
-            self.rho_adapter.initialize_derivatives(self.cache)
         # Get dimensions
         self.nx = A.shape[0]
         self.nu = B.shape[1]
@@ -49,6 +45,11 @@ class TinyMPC:
 
         # Compute cache terms 
         self.compute_cache_terms()
+
+        # Initialize rho adapter AFTER cache is computed
+        self.rho_adapter = rho_adapter
+        if self.rho_adapter:
+            self.rho_adapter.initialize_derivatives(self.cache)
         
         # Set default tolerances and iterations
         self.set_tols_iters()
@@ -92,9 +93,27 @@ class TinyMPC:
         self.cache['C2'] = AmBKt
 
     def backward_pass_grad(self, d, p, q, r):
+        # print("\n=== Starting Backward Pass ===")
+        # print(f"Initial q range: [{np.min(q):.2e}, {np.max(q):.2e}]")
+        # print(f"Initial r range: [{np.min(r):.2e}, {np.max(r):.2e}]")
+        
+        # # Check matrices before any computation
+        # print("\nMatrix Conditions:")
+        # print(f"C1 (Quu_inv) cond: {np.linalg.cond(self.cache['C1']):.2e}")
+        # print(f"C2 (AmBKt) cond: {np.linalg.cond(self.cache['C2']):.2e}")
+        # print(f"Kinf cond: {np.linalg.cond(self.cache['Kinf']):.2e}")
+        
         for k in range(self.N-2, -1, -1):
+            # Store previous values
+            # p_prev = p[:, k].copy()
+            
+            # This makes the difference between numerical stability vs instability! 
             d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
+
+            
             p[:, k] = q[:, k] + np.dot(self.cache['C2'], p[:, k + 1]) - np.dot(self.cache['Kinf'].T, r[:, k])
+            
+           
 
     def forward_pass(self, x, u, d):
         for k in range(self.N - 1):
@@ -102,7 +121,15 @@ class TinyMPC:
             x[:, k + 1] = np.dot(self.cache['A'], x[:, k]) + np.dot(self.cache['B'], u[:, k])
 
     def update_primal(self, x, u, d, p, q, r):
+        # print("\n=== Primal Update ===")
+        # print(f"Before backward - d max: {np.max(np.abs(d)):.2e}")
+        # print(f"Before backward - p max: {np.max(np.abs(p)):.2e}")
+        
         self.backward_pass_grad(d, p, q, r)
+        
+        # print(f"After backward - d max: {np.max(np.abs(d)):.2e}")
+        # print(f"After backward - p max: {np.max(np.abs(p)):.2e}")
+
         self.forward_pass(x, u, d)
 
     def update_slack(self, z, v, y, g, u, x):
@@ -138,6 +165,7 @@ class TinyMPC:
             self.xmax = np.array(xmax)
 
     def set_tols_iters(self, max_iter=500, abs_pri_tol=1e-2, abs_dua_tol=1e-2):
+
         self.max_iter = max_iter
         self.abs_pri_tol = abs_pri_tol
         self.abs_dua_tol = abs_dua_tol
@@ -168,6 +196,10 @@ class TinyMPC:
         return new_rho
 
     def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None):
+        print("\n=== ADMM Iteration Start ===")
+        print(f"Initial x max: {np.max(np.abs(x_init)):.2e}")
+        print(f"Initial u max: {np.max(np.abs(u_init)):.2e}")
+        
         status = 0
         x = np.copy(x_init)
         u = np.copy(u_init)
@@ -201,7 +233,25 @@ class TinyMPC:
         if (u_ref is None):
             u_ref = np.zeros(u.shape)
 
+
+        #if trajectory following, set max_iter to 10
+        self.max_iter = 20
+
         for k in range(self.max_iter):
+            print(f"\nIteration {k}:")
+            
+            # After primal update
+            print(f"After primal - x max: {np.max(np.abs(x)):.2e}")
+            print(f"After primal - u max: {np.max(np.abs(u)):.2e}")
+            
+            # After slack update
+            print(f"After slack - z max: {np.max(np.abs(z)):.2e}")
+            print(f"After slack - v max: {np.max(np.abs(v)):.2e}")
+            
+            # After dual update
+            print(f"After dual - y max: {np.max(np.abs(y)):.2e}")
+            print(f"After dual - g max: {np.max(np.abs(g)):.2e}")
+            
             self.update_primal(x, u, d, p, q, r)
             self.update_slack(z, v, y, g, u, x)
             self.update_dual(y, g, u, x, z, v)
@@ -230,5 +280,46 @@ class TinyMPC:
         self.q_prev = q
 
         return x, u, status, k
+
+    def shift_steps(self, x_nom, u_nom, x_curr, goals=None, dt=None):
+        """Shift trajectory steps and update start state
+        
+        Args:
+            x_nom (np.ndarray): Nominal state trajectory (nx x N)
+            u_nom (np.ndarray): Nominal input trajectory (nu x N-1)
+            x_curr (np.ndarray): Current state
+            goals (np.ndarray, optional): Reference trajectory points (nx x N)
+            dt (float, optional): Time step for integration
+        """
+        # 1. Shift existing trajectories
+        x_nom[:, :-1] = x_nom[:, 1:]
+        u_nom[:, :-1] = u_nom[:, 1:]
+        
+        # 2. Convert full state to linearized state if needed
+        if x_curr.shape[0] == 13:  # Full state
+            x_lin = x_curr[[0,1,2, 4,5,6, 7,8,9, 10,11,12]]  # Skip w (index 3)
+        else:  # Already linearized
+            x_lin = x_curr
+        
+        # 3. Update start state
+        x_nom[:, 0] = x_lin
+        
+        # 4. Update final point using one of these methods:
+        if goals is not None:
+            # Method A: Use reference trajectory
+            x_nom[:, -1] = goals[:, -1]
+            u_nom[:, -1] = u_nom[:, -2]  # Copy last input
+        else:
+            # Method B: Copy previous point
+            x_nom[:, -1] = x_nom[:, -2]
+            u_nom[:, -1] = u_nom[:, -2]
+            
+            # Method C: Integrate forward (if dt is provided)
+            # if dt is not None:
+            #     x_final = x_nom[:, -2]
+            #     u_final = u_nom[:, -2]
+            #     x_nom[:, -1] = self.integrate_dynamics(x_final, u_final, dt)
+        
+        return x_nom, u_nom
 
     
