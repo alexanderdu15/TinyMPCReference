@@ -43,7 +43,7 @@ def main(use_rho_adaptation=False):
     
     # Trajectory parameters
     amplitude = 0.5
-    w = 2*np.pi/4.0
+    w = 2*np.pi/6.0
     trajectory = Figure8Reference(A=amplitude, w=w)
     
     # Get the initial reference point and set initial state
@@ -67,14 +67,14 @@ def main(use_rho_adaptation=False):
         0.5, 0.5, 0.5,       # velocity
         0.7, 0.7, 0.5        # angular velocity
     ])
-    max_dev_u = np.array([0.1, 0.1, 0.1, 0.1])
+    max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])/6
 
     Q = np.diag(1.0 / (max_dev_x**2))  # Much higher position weights
     R = np.diag(1.0 / (max_dev_u**2))
 
     # Setup PC
-    N = 20
-    initial_rho = 5.0
+    N = 12
+    initial_rho = 1.0
     
     # Initialize MPC
     mpc = TinyMPC(
@@ -89,7 +89,7 @@ def main(use_rho_adaptation=False):
 
    
     if use_rho_adaptation:
-        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=0.1, rho_max=20.0)
+        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=1.0, rho_max=20.0)
         mpc.rho_adapter = rho_adapter
         mpc.rho_adapter.initialize_derivatives(mpc.cache)
        
@@ -107,23 +107,31 @@ def main(use_rho_adaptation=False):
     u_nom = np.zeros((quad.nu, mpc.N-1))
 
     
-    # Initialize with proper timing
-    t0 = 0.0
-    for i in range(mpc.N):
-        t = t0 + i*quad.dt
-        x_ref = trajectory.generate_reference(t)
-        print(f"Initial trajectory point {i}: {x_ref[0:3]}")
-        x_nom[:,i] = x_ref
+    # # Initialize with proper timing
+    # t0 = 0.0
+    # for i in range(mpc.N):
+    #     t = t0 + i*quad.dt
+    #     x_ref = trajectory.generate_reference(t)
+    #     print(f"Initial trajectory point {i}: {x_ref[0:3]}")
+    #     x_nom[:,i] = x_ref
 
 
-    u_nom = np.zeros((quad.nu, mpc.N-1))
-    u_nom[:] = ug.reshape(-1,1)
+    # u_nom = np.zeros((quad.nu, mpc.N-1))
+    # u_nom[:] = ug.reshape(-1,1)
 
     
-    t0 = 0.0
-    for i in range(mpc.N-1):
-        t = t0 + i*quad.dt
-        u_nom[:,i] = trajectory.compute_nominal_control(t, quad)
+    # t0 = 0.0
+    # for i in range(mpc.N-1):
+    #     t = t0 + i*quad.dt
+    #     u_nom[:,i] = trajectory.compute_nominal_control(t, quad)
+
+    u_nom = np.zeros((quad.nu, mpc.N-1))
+    u_nom[:] = ug.reshape(-1,1)  # hover thrust
+
+    # Initialize nominal states from trajectory
+    x_nom = np.zeros((quad.nx, mpc.N))
+    for i in range(mpc.N):
+        x_nom[:,i] = trajectory.generate_reference(i*quad.dt)
 
     # Debug prints
     print("\nNominal control check:")
@@ -143,7 +151,7 @@ def main(use_rho_adaptation=False):
             trajectory=trajectory,
             dt_sim=0.01,
             dt_mpc=quad.dt,
-            NSIM=250
+            NSIM=350
         )
 
         # Unpack results based on whether we're using rho adaptation
