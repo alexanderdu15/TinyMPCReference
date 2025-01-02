@@ -45,6 +45,7 @@ class RhoAdapter:
         c1_size = m * m
         c2_size = n * n
         
+        # Store derivatives in the cache directly
         cache['dKinf_drho'] = derivs[:k_size].reshape(m, n)
         cache['dPinf_drho'] = derivs[k_size:k_size+p_size].reshape(n, n)
         cache['dC1_drho'] = derivs[k_size+p_size:k_size+p_size+c1_size].reshape(m, m)
@@ -138,12 +139,12 @@ class RhoAdapter:
                 q_blocks.append(q_x)
         q = np.vstack(q_blocks)
 
-        print(f"x shape: {x.shape}")
-        print(f"A shape: {A.shape}")
-        print(f"z shape: {z.shape}")
-        print(f"y shape: {y.shape}")
-        print(f"P shape: {P.shape}")
-        print(f"q shape: {q.shape}")
+        # print(f"x shape: {x.shape}")
+        # print(f"A shape: {A.shape}")
+        # print(f"z shape: {z.shape}")
+        # print(f"y shape: {y.shape}")
+        # print(f"P shape: {P.shape}")
+        # print(f"q shape: {q.shape}")
 
         return x, A, z, y, P, q
 
@@ -152,18 +153,24 @@ class RhoAdapter:
 
     def compute_residuals(self, x, A, z, y, P, q):
         """Compute ADMM residuals"""
-        # Primal residual
-
-        
+        # Primal residual        
         Ax = A @ x
         r_prim = Ax - z
         pri_res = np.linalg.norm(r_prim, ord=np.inf)
         pri_norm = max(np.linalg.norm(Ax, ord=np.inf), 
                       np.linalg.norm(z, ord=np.inf))
 
+
+        # print(f"Ax: {Ax}")
+        # print(f"z: {z}")
+        # print(f"Primal residual: {pri_res:.2e}")
+        # print(f"Primal norm: {pri_norm:.2e}")
+
         # Dual residual
         r_dual = P @ x + q + A.T @ y
         dual_res = np.linalg.norm(r_dual, ord=np.inf)
+
+    
         
         # Normalization terms
         Px = P @ x

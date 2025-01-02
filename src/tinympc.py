@@ -108,9 +108,9 @@ class TinyMPC:
             # p_prev = p[:, k].copy()
             
             # This makes the difference between numerical stability vs instability! 
-            d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
+            #d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
 
-            
+
             p[:, k] = q[:, k] + np.dot(self.cache['C2'], p[:, k + 1]) - np.dot(self.cache['Kinf'].T, r[:, k])
             
            
@@ -235,7 +235,7 @@ class TinyMPC:
 
 
         #if trajectory following, set max_iter to 10
-        self.max_iter = 20
+        #self.max_iter = 20
 
         for k in range(self.max_iter):
             print(f"\nIteration {k}:")
@@ -314,11 +314,6 @@ class TinyMPC:
             x_nom[:, -1] = x_nom[:, -2]
             u_nom[:, -1] = u_nom[:, -2]
             
-            # Method C: Integrate forward (if dt is provided)
-            # if dt is not None:
-            #     x_final = x_nom[:, -2]
-            #     u_final = u_nom[:, -2]
-            #     x_nom[:, -1] = self.integrate_dynamics(x_final, u_final, dt)
         
         return x_nom, u_nom
 

@@ -89,7 +89,7 @@ def main(use_rho_adaptation=False):
             u_nom=u_nom,
             mpc=mpc,
             quad=quad,
-            NSIM=100
+            NSIM=150
         )
 
         # Unpack results based on whether we're using rho adaptation
