@@ -19,7 +19,7 @@ def compute_hover_error(x_all, xg):
         errors.append(pos_error)
     return np.mean(errors), np.max(errors), errors
 
-def main(use_rho_adaptation=False):
+def main(use_rho_adaptation=False, use_recaching=False):
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -64,8 +64,12 @@ def main(use_rho_adaptation=False):
         R=R,
         Nsteps=N,
         rho=initial_rho,
-        rho_adapter=rho_adapter
+        rho_adapter=rho_adapter,
+        recache=use_recaching
     )
+
+    if use_rho_adaptation:
+        mpc.rho_adapter.initialize_derivatives(mpc.cache)
 
     # Set bounds
     u_max = [1.0-ug[0]] * quad.nu
@@ -107,12 +111,17 @@ def main(use_rho_adaptation=False):
 
         # Save data
         data_dir = Path('../data')
-        (data_dir / 'iterations').mkdir(parents=True, exist_ok=True)
-        np.savetxt(data_dir / 'iterations' / f"{'adaptive' if use_rho_adaptation else 'normal'}_hover.txt", iterations)
+   
+        suffix = '_normal'
+        if use_rho_adaptation:
+            suffix = '_adaptive'
+        if use_recaching:
+            suffix += '_recache'
+
+        np.savetxt(data_dir / 'iterations' / f"hover{suffix}.txt", iterations)
         
         if use_rho_adaptation:
-            (data_dir / 'rho_history').mkdir(parents=True, exist_ok=True)
-            np.savetxt(data_dir / 'rho_history' / 'adaptive_hover.txt', rho_history)
+            np.savetxt(data_dir / 'rho_history' / f"hover{suffix}.txt", rho_history)
 
         # Visualize results
         visualize_trajectory(x_all, u_all, xg, ug)
@@ -144,6 +153,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--adapt', action='store_true', help='Enable rho adaptation')
+    parser.add_argument('--recache', action='store_true', help='Enable cache recomputation')
     args = parser.parse_args()
     
-    main(use_rho_adaptation=args.adapt)
+    main(use_rho_adaptation=args.adapt, use_recaching=args.recache)

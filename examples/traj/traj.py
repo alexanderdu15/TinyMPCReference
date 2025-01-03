@@ -24,7 +24,7 @@ def compute_tracking_error(x_all, trajectory, dt):
     
     return np.mean(errors), np.max(errors), errors
 
-def main(use_rho_adaptation=False):
+def main(use_rho_adaptation=False, use_recaching=False):
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -67,15 +67,20 @@ def main(use_rho_adaptation=False):
         0.5, 0.5, 0.5,       # velocity
         0.7, 0.7, 0.5        # angular velocity
     ])
-    max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])/6
+    max_dev_u = np.array([0.1, 0.1, 0.1, 0.1])
 
     Q = np.diag(1.0 / (max_dev_x**2))  # Much higher position weights
     R = np.diag(1.0 / (max_dev_u**2))
 
     # Setup PC
-    N = 12
+    N = 20
     initial_rho = 1.0
-    
+
+    rho_adapter = None
+    if use_rho_adaptation:
+        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=1.0, rho_max=200.0)
+       
+
     # Initialize MPC
     mpc = TinyMPC(
         A=A,
@@ -83,14 +88,13 @@ def main(use_rho_adaptation=False):
         Q=Q,
         R=R,
         Nsteps=N,
-        rho=initial_rho
-        
+        rho=initial_rho,
+        rho_adapter= rho_adapter,
+        recache = use_recaching
     )
 
    
     if use_rho_adaptation:
-        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=1.0, rho_max=20.0)
-        mpc.rho_adapter = rho_adapter
         mpc.rho_adapter.initialize_derivatives(mpc.cache)
        
 
@@ -141,7 +145,10 @@ def main(use_rho_adaptation=False):
 
     # Run simulation
     try:
-        print(f"Starting trajectory tracking simulation{'with rho adaptation' if use_rho_adaptation else ''}...")
+        print(f"Starting trajectory tracking simulation with:")
+        print(f"- Rho adaptation: {'enabled' if use_rho_adaptation else 'disabled'}")
+        print(f"- Cache recomputation: {'enabled' if use_recaching else 'disabled'}")
+
         simulation_result = simulate_with_controller(
             x0=x0,
             x_nom=x_nom,
@@ -151,7 +158,7 @@ def main(use_rho_adaptation=False):
             trajectory=trajectory,
             dt_sim=0.01,
             dt_mpc=quad.dt,
-            NSIM=350
+            NSIM=250
         )
 
         # Unpack results based on whether we're using rho adaptation
@@ -169,12 +176,24 @@ def main(use_rho_adaptation=False):
 
         # Save data
         data_dir = Path('../data')
-        (data_dir / 'iterations').mkdir(parents=True, exist_ok=True)
-        np.savetxt(data_dir / 'iterations' / f"{'adaptive' if use_rho_adaptation else 'normal'}_traj.txt", iterations)
+        # (data_dir / 'iterations').mkdir(parents=True, exist_ok=True)
+        # np.savetxt(data_dir / 'iterations' / f"{'adaptive' if use_rho_adaptation else 'normal'}_traj.txt", iterations)
+        
+        # if use_rho_adaptation:
+        #     (data_dir / 'rho_history').mkdir(parents=True, exist_ok=True)
+        #     np.savetxt(data_dir / 'rho_history' / 'adaptive_traj.txt', rho_history)
+
+
+        suffix = '_normal'
+        if use_rho_adaptation:
+            suffix = '_adaptive'
+        if use_recaching:
+            suffix += '_recache'
+
+        np.savetxt(data_dir / 'iterations' / f"traj{suffix}.txt", iterations)
         
         if use_rho_adaptation:
-            (data_dir / 'rho_history').mkdir(parents=True, exist_ok=True)
-            np.savetxt(data_dir / 'rho_history' / 'adaptive_traj.txt', rho_history)
+            np.savetxt(data_dir / 'rho_history' / f"traj{suffix}.txt", rho_history)
 
         # Visualize results
         visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
@@ -203,6 +222,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--adapt', action='store_true', help='Enable rho adaptation')
+    parser.add_argument('--recache', action='store_true', help='Enable cache recomputation')
     args = parser.parse_args()
     
-    main(use_rho_adaptation=args.adapt)
+    main(use_rho_adaptation=args.adapt, use_recaching=args.recache)

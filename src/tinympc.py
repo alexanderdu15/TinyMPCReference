@@ -2,7 +2,7 @@
 import numpy as np
 
 class TinyMPC:
-    def __init__(self, A, B, Q, R, Nsteps, rho=1.0, n_dlqr_steps=500, rho_adapter=None):
+    def __init__(self, A, B, Q, R, Nsteps, rho=1.0, n_dlqr_steps=500, rho_adapter=None, recache = False):
         """Initialize TinyMPC with direct system matrices and compute DLQR automatically
         
         Args:
@@ -53,6 +53,8 @@ class TinyMPC:
         
         # Set default tolerances and iterations
         self.set_tols_iters()
+
+        self.recache = recache
 
     def _compute_dlqr(self, A, B, Q, R, n_steps):
         """Compute Discrete-time LQR solution"""
@@ -192,10 +194,16 @@ class TinyMPC:
         )
         updates = self.rho_adapter.update_matrices(self.cache, new_rho)
         self.cache.update(updates)
+
+        
         
         return new_rho
 
     def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None):
+
+
+        
+
         print("\n=== ADMM Iteration Start ===")
         print(f"Initial x max: {np.max(np.abs(x_init)):.2e}")
         print(f"Initial u max: {np.max(np.abs(u_init)):.2e}")
@@ -203,16 +211,7 @@ class TinyMPC:
         status = 0
         x = np.copy(x_init)
         u = np.copy(u_init)
-        # v = np.zeros(x.shape)
-        # z = np.zeros(u.shape)
-        # v_prev = np.zeros(x.shape)
-        # z_prev = np.zeros(u.shape)
-        # g = np.zeros(x.shape)
-        # y = np.zeros(u.shape)
-        # q = np.zeros(x.shape)
-        # r = np.zeros(u.shape)
-        # p = np.zeros(x.shape)
-        # d = np.zeros(u.shape)
+
 
         v = np.copy(self.v_prev)
         z = np.copy(self.z_prev)
@@ -235,7 +234,7 @@ class TinyMPC:
 
 
         #if trajectory following, set max_iter to 10
-        self.max_iter = 20
+        self.max_iter = 500
 
         for k in range(self.max_iter):
             print(f"\nIteration {k}:")
@@ -278,6 +277,12 @@ class TinyMPC:
         self.g_prev = g
         self.y_prev = y
         self.q_prev = q
+
+        if self.recache:
+            print("Recaching cache terms")
+            self.compute_cache_terms()
+
+        
 
         return x, u, status, k
 

@@ -129,8 +129,8 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
         for j in range(mpc.N):
             x_nom[:,j] = trajectory.generate_reference(future_time)
             if j < mpc.N-1:
-                u_nom[:,j] = trajectory.compute_nominal_control(future_time, quad)
-        
+                #u_nom[:,j] = trajectory.compute_nominal_control(future_time, quad)
+                u_nom[:,j] = quad.hover_thrust.reshape(-1)
         # Run MPC step
         u_curr, iters = tinympc_controller(x_curr, x_nom, u_nom, mpc, 
                                          current_time, trajectory, quad)
