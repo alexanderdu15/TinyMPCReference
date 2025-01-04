@@ -43,7 +43,7 @@ def main(use_rho_adaptation=False, use_recaching=False):
     
     # Trajectory parameters
     amplitude = 0.5
-    w = 2*np.pi/6.0
+    w = 2*np.pi/2.5
     trajectory = Figure8Reference(A=amplitude, w=w)
     
     # Get the initial reference point and set initial state
@@ -73,7 +73,7 @@ def main(use_rho_adaptation=False, use_recaching=False):
     R = np.diag(1.0 / (max_dev_u**2))
 
     # Setup PC
-    N = 20
+    N = 25
     initial_rho = 1.0
 
     rho_adapter = None
@@ -158,7 +158,7 @@ def main(use_rho_adaptation=False, use_recaching=False):
             trajectory=trajectory,
             dt_sim=0.01,
             dt_mpc=quad.dt,
-            NSIM=250
+            NSIM=300
         )
 
         # Unpack results based on whether we're using rho adaptation

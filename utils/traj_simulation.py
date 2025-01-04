@@ -46,16 +46,6 @@ def delta_x_quat(x_curr, x_ref=None):
         x_curr[10:13] - omg_ref   # Angular velocity error
     ])
     
-
-    
-    # # Add debug prints
-    # print("\nError Computation Debug:")
-    # print(f"Current position: {x_curr[0:3]}")
-    # print(f"Reference position: {x_ref[0:3]}")
-    # print(f"Position error: {x_curr[0:3] - x_ref[0:3]}")
-    # print(f"Current velocity: {x_curr[7:10]}")
-    # print(f"Reference velocity: {x_ref[6:9]}")
-    # print(f"Velocity error: {x_curr[7:10] - x_ref[6:9]}")
     
     return delta_x
 
@@ -90,6 +80,44 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc, t=None, trajectory=None, quad=
     #return u_total, k
 
     return u_nom[:,0] + u_out[:,0], k
+
+
+def shift_steps(x_nom, u_nom, x_curr, goals=None, dt=None):
+    """Shift trajectory steps and update start state
+        
+    Args:
+        x_nom (np.ndarray): Nominal state trajectory (nx x N)
+        u_nom (np.ndarray): Nominal input trajectory (nu x N-1)
+        x_curr (np.ndarray): Current state
+        goals (np.ndarray, optional): Reference trajectory points (nx x N)
+        dt (float, optional): Time step for integration
+    """
+    # 1. Shift existing trajectories
+    x_nom[:, :-1] = x_nom[:, 1:]
+    u_nom[:, :-1] = u_nom[:, 1:]
+        
+    # 2. Convert full state to linearized state if needed
+    if x_curr.shape[0] == 13:  # Full state
+        x_lin = x_curr[[0,1,2, 4,5,6, 7,8,9, 10,11,12]]  # Skip w (index 3)
+    else:  # Already linearized
+        x_lin = x_curr
+        
+    # 3. Update start state
+    x_nom[:, 0] = x_lin
+        
+    # 4. Update final point using one of these methods:
+    if goals is not None:
+        # Method A: Use reference trajectory
+        x_nom[:, -1] = goals[:, -1]
+        u_nom[:, -1] = u_nom[:, -2]  # Copy last input
+    else:
+        # Method B: Copy previous point
+        x_nom[:, -1] = x_nom[:, -2]
+        u_nom[:, -1] = u_nom[:, -2]
+            
+        
+    return x_nom, u_nom
+
 
 def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, 
                            dt_sim=0.002,   # Explicit simulation timestep
@@ -151,7 +179,7 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
             rho_history.append(new_rho)
             
         # Shift nominal trajectories with goals
-        x_nom, u_nom = mpc.shift_steps(x_nom, u_nom, x_curr, goals=goals)
+        x_nom, u_nom = shift_steps(x_nom, u_nom, x_curr, goals=goals)
 
     # Return results based on whether using rho adaptation
     if mpc.rho_adapter is not None:

@@ -110,7 +110,7 @@ class TinyMPC:
             # p_prev = p[:, k].copy()
             
             # This makes the difference between numerical stability vs instability! 
-            d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
+            #d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
 
 
             p[:, k] = q[:, k] + np.dot(self.cache['C2'], p[:, k + 1]) - np.dot(self.cache['Kinf'].T, r[:, k])
@@ -286,40 +286,5 @@ class TinyMPC:
 
         return x, u, status, k
 
-    def shift_steps(self, x_nom, u_nom, x_curr, goals=None, dt=None):
-        """Shift trajectory steps and update start state
-        
-        Args:
-            x_nom (np.ndarray): Nominal state trajectory (nx x N)
-            u_nom (np.ndarray): Nominal input trajectory (nu x N-1)
-            x_curr (np.ndarray): Current state
-            goals (np.ndarray, optional): Reference trajectory points (nx x N)
-            dt (float, optional): Time step for integration
-        """
-        # 1. Shift existing trajectories
-        x_nom[:, :-1] = x_nom[:, 1:]
-        u_nom[:, :-1] = u_nom[:, 1:]
-        
-        # 2. Convert full state to linearized state if needed
-        if x_curr.shape[0] == 13:  # Full state
-            x_lin = x_curr[[0,1,2, 4,5,6, 7,8,9, 10,11,12]]  # Skip w (index 3)
-        else:  # Already linearized
-            x_lin = x_curr
-        
-        # 3. Update start state
-        x_nom[:, 0] = x_lin
-        
-        # 4. Update final point using one of these methods:
-        if goals is not None:
-            # Method A: Use reference trajectory
-            x_nom[:, -1] = goals[:, -1]
-            u_nom[:, -1] = u_nom[:, -2]  # Copy last input
-        else:
-            # Method B: Copy previous point
-            x_nom[:, -1] = x_nom[:, -2]
-            u_nom[:, -1] = u_nom[:, -2]
-            
-        
-        return x_nom, u_nom
-
+    
     
