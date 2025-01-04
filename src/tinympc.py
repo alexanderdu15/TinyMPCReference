@@ -106,11 +106,8 @@ class TinyMPC:
         # print(f"Kinf cond: {np.linalg.cond(self.cache['Kinf']):.2e}")
         
         for k in range(self.N-2, -1, -1):
-            # Store previous values
-            # p_prev = p[:, k].copy()
-            
-            # This makes the difference between numerical stability vs instability! 
-            #d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
+
+            d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
 
 
             p[:, k] = q[:, k] + np.dot(self.cache['C2'], p[:, k + 1]) - np.dot(self.cache['Kinf'].T, r[:, k])
