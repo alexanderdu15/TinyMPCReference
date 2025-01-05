@@ -107,29 +107,8 @@ def main(use_rho_adaptation=False, use_recaching=False):
 
     # Create trajectory reference (keep your original parameters)
     x_nom = np.zeros((quad.nx, mpc.N))
-    #u_nom = np.zeros((quad.nu, mpc.N-1))
     u_nom = np.zeros((quad.nu, mpc.N-1))
 
-    
-    # # Initialize with proper timing
-    # t0 = 0.0
-    # for i in range(mpc.N):
-    #     t = t0 + i*quad.dt
-    #     x_ref = trajectory.generate_reference(t)
-    #     print(f"Initial trajectory point {i}: {x_ref[0:3]}")
-    #     x_nom[:,i] = x_ref
-
-
-    # u_nom = np.zeros((quad.nu, mpc.N-1))
-    # u_nom[:] = ug.reshape(-1,1)
-
-    
-    # t0 = 0.0
-    # for i in range(mpc.N-1):
-    #     t = t0 + i*quad.dt
-    #     u_nom[:,i] = trajectory.compute_nominal_control(t, quad)
-
-    u_nom = np.zeros((quad.nu, mpc.N-1))
     u_nom[:] = ug.reshape(-1,1)  # hover thrust
 
     # Initialize nominal states from trajectory
@@ -176,14 +155,6 @@ def main(use_rho_adaptation=False, use_recaching=False):
 
         # Save data
         data_dir = Path('../data')
-        # (data_dir / 'iterations').mkdir(parents=True, exist_ok=True)
-        # np.savetxt(data_dir / 'iterations' / f"{'adaptive' if use_rho_adaptation else 'normal'}_traj.txt", iterations)
-        
-        # if use_rho_adaptation:
-        #     (data_dir / 'rho_history').mkdir(parents=True, exist_ok=True)
-        #     np.savetxt(data_dir / 'rho_history' / 'adaptive_traj.txt', rho_history)
-
-
         suffix = '_normal'
         if use_rho_adaptation:
             suffix = '_adaptive'

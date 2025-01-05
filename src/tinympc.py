@@ -95,15 +95,6 @@ class TinyMPC:
         self.cache['C2'] = AmBKt
 
     def backward_pass_grad(self, d, p, q, r):
-        # print("\n=== Starting Backward Pass ===")
-        # print(f"Initial q range: [{np.min(q):.2e}, {np.max(q):.2e}]")
-        # print(f"Initial r range: [{np.min(r):.2e}, {np.max(r):.2e}]")
-        
-        # # Check matrices before any computation
-        # print("\nMatrix Conditions:")
-        # print(f"C1 (Quu_inv) cond: {np.linalg.cond(self.cache['C1']):.2e}")
-        # print(f"C2 (AmBKt) cond: {np.linalg.cond(self.cache['C2']):.2e}")
-        # print(f"Kinf cond: {np.linalg.cond(self.cache['Kinf']):.2e}")
         
         for k in range(self.N-2, -1, -1):
 
@@ -197,10 +188,6 @@ class TinyMPC:
         return new_rho
 
     def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None):
-
-
-        
-
         print("\n=== ADMM Iteration Start ===")
         print(f"Initial x max: {np.max(np.abs(x_init)):.2e}")
         print(f"Initial u max: {np.max(np.abs(u_init)):.2e}")

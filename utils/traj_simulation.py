@@ -65,20 +65,6 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc, t=None, trajectory=None, quad=
     # Solve MPC with zero reference (since we're already in error coordinates)
     x_out, u_out, status, k = mpc.solve_admm(x_init, u_init) 
     
-    # Get nominal control
-    #u_nominal = trajectory.compute_nominal_control(t, quad)
-    
-    # Debug prints
-    # print("\nMPC Debug:")
-    # print(f"Error state: {delta_x}")
-    # print(f"MPC correction: {u_out[:,0]}")
-    # print(f"Nominal control: {u_nominal}")
-    
-    # Combine nominal and correction terms
-    #u_total = u_nominal + u_out[:,0]
-    
-    #return u_total, k
-
     return u_nom[:,0] + u_out[:,0], k
 
 
