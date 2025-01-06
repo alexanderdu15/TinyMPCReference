@@ -105,10 +105,23 @@ def shift_steps(x_nom, u_nom, x_curr, goals=None, dt=None):
     return x_nom, u_nom
 
 
+def generate_wind(t):
+    """Generate time-varying wind disturbance"""
+    wind_mean = np.array([0.2, 0.0, 0.3])
+    wind_freq = 0.5
+    wind_amp = 0.5
+    wind = wind_mean + wind_amp * np.array([
+        np.sin(wind_freq * t),
+        np.cos(wind_freq * t),
+        0.2 * np.sin(2 * wind_freq * t)
+    ])
+    return wind
+
 def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, 
-                           dt_sim=0.002,   # Explicit simulation timestep
-                           dt_mpc=0.02,    # Explicit MPC timestep
-                           NSIM=400):      # Number of MPC steps
+                           dt_sim=0.002,   
+                           dt_mpc=0.02,    
+                           NSIM=400,
+                           use_wind=False):  # Add wind flag parameter
     """Simulate system with MPC controller
     
     Args:
@@ -128,6 +141,12 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
     iterations = []
     rho_history = [] if mpc.rho_adapter is not None else None
     current_time = 0.0
+    
+    # New: Track metrics separately
+    metrics = {
+        'trajectory_costs': [],
+        'control_efforts': []
+    }
     
     # Compute simulation steps per MPC update
     n_sim_steps = int(dt_mpc / dt_sim)
@@ -151,13 +170,22 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
         
         # Simulate with finer timestep
         for _ in range(n_sim_steps):
-            x_curr = quad.dynamics_rk4(x_curr, u_curr, dt=dt_sim)
+            # Only generate and apply wind if use_wind is True
+            wind_vec = generate_wind(current_time) if use_wind else np.zeros(3)
+            x_curr = quad.dynamics_rk4(x_curr, u_curr, dt=dt_sim, wind_vec=wind_vec)
             current_time += dt_sim
         
-        # Store results
+        # Store basic results
         x_all.append(x_curr)
         u_all.append(u_curr)
         iterations.append(iters)
+        
+        # Store additional metrics
+        current_ref = trajectory.generate_reference(current_time)
+        pos_error = np.linalg.norm(x_curr[0:3] - current_ref[0:3])
+        att_error = np.linalg.norm(x_curr[3:7] - current_ref[3:7])
+        metrics['trajectory_costs'].append(pos_error + att_error)
+        metrics['control_efforts'].append(np.sum(np.abs(u_curr[1:])))  # Excluding thrust
         
         # Update rho if using adaptation
         if mpc.rho_adapter is not None:
@@ -167,8 +195,12 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
         # Shift nominal trajectories with goals
         x_nom, u_nom = shift_steps(x_nom, u_nom, x_curr, goals=goals)
 
-    # Return results based on whether using rho adaptation
+    # Convert to numpy arrays for easier analysis
+    x_all = np.array(x_all)
+    u_all = np.array(u_all)
+    
+    # Return format matching your existing code
     if mpc.rho_adapter is not None:
-        return np.array(x_all), np.array(u_all), iterations, rho_history
+        return x_all, u_all, iterations, rho_history, metrics
     else:
-        return np.array(x_all), np.array(u_all), iterations
+        return x_all, u_all, iterations, metrics

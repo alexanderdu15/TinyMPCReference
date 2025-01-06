@@ -24,7 +24,7 @@ def compute_tracking_error(x_all, trajectory, dt):
     
     return np.mean(errors), np.max(errors), errors
 
-def main(use_rho_adaptation=False, use_recaching=False):
+def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -43,7 +43,7 @@ def main(use_rho_adaptation=False, use_recaching=False):
     
     # Trajectory parameters
     amplitude = 0.5
-    w = 2*np.pi/2.5
+    w = 2*np.pi/3.0
     trajectory = Figure8Reference(A=amplitude, w=w)
     
     # Get the initial reference point and set initial state
@@ -73,7 +73,7 @@ def main(use_rho_adaptation=False, use_recaching=False):
     R = np.diag(1.0 / (max_dev_u**2))
 
     # Setup PC
-    N = 25
+    N = 15
     initial_rho = 1.0
 
     rho_adapter = None
@@ -136,16 +136,24 @@ def main(use_rho_adaptation=False, use_recaching=False):
             quad=quad,
             trajectory=trajectory,
             dt_sim=0.01,
-            dt_mpc=quad.dt,
-            NSIM=300
+            #dt_mpc=quad.dt,
+            dt_mpc=0.02,
+            NSIM=300,
+            use_wind=use_wind
         )
 
         # Unpack results based on whether we're using rho adaptation
         if use_rho_adaptation:
-            x_all, u_all, iterations, rho_history = simulation_result
+            x_all, u_all, iterations, rho_history, metrics = simulation_result
         else:
-            x_all, u_all, iterations = simulation_result
+            x_all, u_all, iterations, metrics = simulation_result
             rho_history = None
+
+        # Now you can access the metrics separately
+        trajectory_costs = metrics['trajectory_costs']
+        control_efforts = metrics['control_efforts']
+
+        
 
         # Compute and display tracking error
         avg_error, max_error, errors = compute_tracking_error(x_all, trajectory, quad.dt)
@@ -158,13 +166,22 @@ def main(use_rho_adaptation=False, use_recaching=False):
         suffix = '_normal'
         if use_rho_adaptation:
             suffix = '_adaptive'
+        if use_wind:
+            suffix += '_wind'
         if use_recaching:
             suffix += '_recache'
+
+        for dir_name in ['iterations', 'rho_history', 'trajectory_costs', 'control_efforts']:
+            (data_dir / dir_name).mkdir(exist_ok=True)
 
         np.savetxt(data_dir / 'iterations' / f"traj{suffix}.txt", iterations)
         
         if use_rho_adaptation:
             np.savetxt(data_dir / 'rho_history' / f"traj{suffix}.txt", rho_history)
+
+        # Save new metrics
+        np.savetxt(data_dir / 'trajectory_costs' / f"traj{suffix}.txt", metrics['trajectory_costs'])
+        np.savetxt(data_dir / 'control_efforts' / f"traj{suffix}.txt", metrics['control_efforts'])
 
         # Visualize results
         visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
@@ -174,16 +191,38 @@ def main(use_rho_adaptation=False, use_recaching=False):
 
         # Plot tracking error
         plt.figure(figsize=(10, 4))
+        plt.subplot(1, 2, 1)
         plt.plot(np.arange(len(errors))*quad.dt, errors)
         plt.xlabel('Time [s]')
         plt.ylabel('L2 Position Error [m]')
         plt.title('Tracking Error over Time')
         plt.grid(True)
+
+        # Plot new metrics
+        plt.figure(figsize=(12, 4))
+        plt.subplot(1, 2, 1)
+        plt.plot(np.arange(len(metrics['trajectory_costs']))*quad.dt, 
+                 metrics['trajectory_costs'], label='Trajectory Cost')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Cost')
+        plt.title('Trajectory Cost over Time')
+        plt.grid(True)
+
+        plt.subplot(1, 2, 2)
+        plt.plot(np.arange(len(metrics['control_efforts']))*quad.dt, 
+                 metrics['control_efforts'], label='Control Effort')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Total Torque')
+        plt.title('Control Effort over Time')
+        plt.grid(True)
+        plt.tight_layout()
         plt.show()
 
         print("\nSimulation completed successfully!")
         print(f"Average iterations per step: {np.mean(iterations):.2f}")
         print(f"Total iterations: {sum(iterations)}")
+        print(f"Average trajectory cost: {np.mean(metrics['trajectory_costs']):.4f}")
+        print(f"Average control effort: {np.mean(metrics['control_efforts']):.4f}")
 
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
@@ -194,6 +233,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--adapt', action='store_true', help='Enable rho adaptation')
     parser.add_argument('--recache', action='store_true', help='Enable cache recomputation')
+    parser.add_argument('--wind', action='store_true', help='Enable wind disturbance')
     args = parser.parse_args()
     
-    main(use_rho_adaptation=args.adapt, use_recaching=args.recache)
+    main(use_rho_adaptation=args.adapt, 
+         use_recaching=args.recache,
+         use_wind=args.wind)

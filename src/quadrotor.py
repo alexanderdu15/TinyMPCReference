@@ -26,7 +26,7 @@ class QuadrotorDynamics:
         
         self.hover_thrust = (self.mass * self.g / self.kt / 4) * np.ones(4)
 
-    def dynamics(self, x, u, wind=np.array([0.0, 0.0, 0.0])):
+    def dynamics(self, x, u, wind=np.zeros(3)):
         r = x[0:3]
         q = x[3:7]/norm(x[3:7])
         v = x[7:10]
@@ -35,9 +35,18 @@ class QuadrotorDynamics:
 
         dr = v
         dq = 0.5 * self.L(q) @ self.H @ omg
+        
+        # Add wind effects directly in dynamics
+        k_drag = 0.1
+        wind_body = Q.T @ wind
+        v_rel = wind_body - v
+        F_drag = -k_drag * np.sign(v_rel) * v_rel**2
+        a_wind = F_drag / self.mass
+
         dv = np.array([0, 0, -self.g]) + (1/self.mass) * Q @ np.array([[0, 0, 0, 0], 
                                                                        [0, 0, 0, 0], 
-                                                                       [self.kt, self.kt, self.kt, self.kt]]) @ u + wind
+                                                                       [self.kt, self.kt, self.kt, self.kt]]) @ u + a_wind
+        
         domg = inv(self.J) @ (-self.hat(omg) @ self.J @ omg + 
                              np.array([[-self.el*self.kt, -self.el*self.kt, self.el*self.kt, self.el*self.kt], 
                                      [-self.el*self.kt, self.el*self.kt, self.el*self.kt, -self.el*self.kt], 
@@ -45,16 +54,18 @@ class QuadrotorDynamics:
 
         return np.hstack([dr, dq, dv, domg])
 
-    def dynamics_rk4(self, x, u, dt=None):
+    def dynamics_rk4(self, x, u, dt=None, wind_vec=None):
         """RK4 integration of dynamics with optional dt parameter"""
         if dt is None:
             dt = self.dt
+        if wind_vec is None:
+            wind_vec = np.zeros(3)
             
         # RK4 integration
-        k1 = self.dynamics(x, u)
-        k2 = self.dynamics(x + dt/2 * k1, u)
-        k3 = self.dynamics(x + dt/2 * k2, u)
-        k4 = self.dynamics(x + dt * k3, u)
+        k1 = self.dynamics(x, u, wind_vec)  # Pass wind directly to dynamics
+        k2 = self.dynamics(x + dt/2 * k1, u, wind_vec)
+        k3 = self.dynamics(x + dt/2 * k2, u, wind_vec)
+        k4 = self.dynamics(x + dt * k3, u, wind_vec)
         
         # Integrate
         xn = x + (dt/6.0)*(k1 + 2*k2 + 2*k3 + k4)
@@ -119,3 +130,32 @@ class QuadrotorDynamics:
             np.hstack([np.zeros((4,3)), cls.G(q), np.zeros((4,6))]),
             np.hstack([np.zeros((6,3)), np.zeros((6,3)), np.eye(6)])
         ])
+
+    def apply_wind(self, x, wind_vec):
+        """Apply wind forces to the quadrotor
+        
+        Args:
+            x: current state
+            wind_vec: 3D wind vector [vx, vy, vz] in world frame
+        
+        Returns:
+            Additional acceleration vector due to wind
+        """
+        # Get current orientation quaternion
+        q = x[3:7]/np.linalg.norm(x[3:7])
+        
+        # Convert wind from world to body frame using rotation matrix
+        Q = self.qtoQ(q)
+        wind_body = Q.T @ wind_vec  # No need to stack, just rotate the 3D vector
+        
+        # Simple drag model: F = -k * v_rel^2
+        k_drag = 0.1  # drag coefficient
+        v_rel = wind_body - x[7:10]  # relative velocity
+        
+        # Compute drag force in body frame
+        F_drag = -k_drag * np.sign(v_rel) * v_rel**2
+        
+        # Convert force to acceleration
+        a_wind = F_drag / self.mass
+        
+        return a_wind

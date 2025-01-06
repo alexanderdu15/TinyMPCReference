@@ -99,8 +99,6 @@ class TinyMPC:
         for k in range(self.N-2, -1, -1):
 
             d[:, k] = np.dot(self.cache['C1'], np.dot(self.cache['B'].T, p[:, k + 1]) + r[:, k])
-
-
             p[:, k] = q[:, k] + np.dot(self.cache['C2'], p[:, k + 1]) - np.dot(self.cache['Kinf'].T, r[:, k])
             
            
@@ -218,22 +216,23 @@ class TinyMPC:
 
 
         #if trajectory following, set max_iter to 10
-        self.max_iter = 500
+        self.max_iter = 5
 
         for k in range(self.max_iter):
             print(f"\nIteration {k}:")
             
-            # After primal update
-            print(f"After primal - x max: {np.max(np.abs(x)):.2e}")
-            print(f"After primal - u max: {np.max(np.abs(u)):.2e}")
             
-            # After slack update
-            print(f"After slack - z max: {np.max(np.abs(z)):.2e}")
-            print(f"After slack - v max: {np.max(np.abs(v)):.2e}")
+            # # After primal update
+            # print(f"After primal - x max: {np.max(np.abs(x)):.2e}")
+            # print(f"After primal - u max: {np.max(np.abs(u)):.2e}")
             
-            # After dual update
-            print(f"After dual - y max: {np.max(np.abs(y)):.2e}")
-            print(f"After dual - g max: {np.max(np.abs(g)):.2e}")
+            # # After slack update
+            # print(f"After slack - z max: {np.max(np.abs(z)):.2e}")
+            # print(f"After slack - v max: {np.max(np.abs(v)):.2e}")
+            
+            # # After dual update
+            # print(f"After dual - y max: {np.max(np.abs(y)):.2e}")
+            # print(f"After dual - g max: {np.max(np.abs(g)):.2e}")
             
             self.update_primal(x, u, d, p, q, r)
             self.update_slack(z, v, y, g, u, x)
