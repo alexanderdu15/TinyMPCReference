@@ -11,6 +11,7 @@ from scipy.spatial.transform import Rotation as spRot
 from utils.reference_trajectories import Figure8Reference
 from src.rho_adapter import RhoAdapter
 import matplotlib.pyplot as plt
+import argparse
 
 def compute_tracking_error(x_all, trajectory, dt):
     """Compute L2 tracking error over the trajectory"""
@@ -24,7 +25,7 @@ def compute_tracking_error(x_all, trajectory, dt):
     
     return np.mean(errors), np.max(errors), errors
 
-def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
+def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_type='full'):
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -44,7 +45,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
     # Trajectory parameters
     amplitude = 0.5
     w = 2*np.pi/3.0
-    trajectory = Figure8Reference(A=amplitude, w=w)
+    trajectory = Figure8Reference(A=amplitude, w=w, segment_type=traj_type)
     
     # Get the initial reference point and set initial state
     x_ref_0 = trajectory.generate_reference(0.0)
@@ -170,6 +171,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
             suffix += '_wind'
         if use_recaching:
             suffix += '_recache'
+        suffix += f'_{traj_type}'  # Add trajectory type to suffix
 
         for dir_name in ['iterations', 'rho_history', 'trajectory_costs', 'control_efforts']:
             (data_dir / dir_name).mkdir(exist_ok=True)
@@ -229,13 +231,32 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         raise
 
 if __name__ == "__main__":
-    import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--adapt', action='store_true', help='Enable rho adaptation')
-    parser.add_argument('--recache', action='store_true', help='Enable cache recomputation')
-    parser.add_argument('--wind', action='store_true', help='Enable wind disturbance')
+    parser.add_argument('--adapt', action='store_true', 
+                        help='Enable rho adaptation')
+    parser.add_argument('--recache', action='store_true', 
+                        help='Enable cache recomputation')
+    parser.add_argument('--wind', action='store_true', 
+                        help='Enable wind disturbance')
+    
+    # Mutually exclusive group for trajectory type
+    traj_group = parser.add_mutually_exclusive_group()
+    traj_group.add_argument('--straight', action='store_true', 
+                           help='Run straight segments only')
+    traj_group.add_argument('--curve', action='store_true', 
+                           help='Run curved segments only')
+    
     args = parser.parse_args()
+    
+    # Determine trajectory type
+    if args.straight:
+        traj_type = 'straight'
+    elif args.curve:
+        traj_type = 'curve'
+    else:
+        traj_type = 'full'  # default
     
     main(use_rho_adaptation=args.adapt, 
          use_recaching=args.recache,
-         use_wind=args.wind)
+         use_wind=args.wind,
+         traj_type=traj_type)
