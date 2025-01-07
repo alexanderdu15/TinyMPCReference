@@ -109,15 +109,9 @@ class TinyMPC:
             x[:, k + 1] = np.dot(self.cache['A'], x[:, k]) + np.dot(self.cache['B'], u[:, k])
 
     def update_primal(self, x, u, d, p, q, r):
-        # print("\n=== Primal Update ===")
-        # print(f"Before backward - d max: {np.max(np.abs(d)):.2e}")
-        # print(f"Before backward - p max: {np.max(np.abs(p)):.2e}")
+        
         
         self.backward_pass_grad(d, p, q, r)
-        
-        # print(f"After backward - d max: {np.max(np.abs(d)):.2e}")
-        # print(f"After backward - p max: {np.max(np.abs(p)):.2e}")
-
         self.forward_pass(x, u, d)
 
     def update_slack(self, z, v, y, g, u, x):
@@ -220,20 +214,7 @@ class TinyMPC:
 
         for k in range(self.max_iter):
             print(f"\nIteration {k}:")
-            
-            
-            # # After primal update
-            # print(f"After primal - x max: {np.max(np.abs(x)):.2e}")
-            # print(f"After primal - u max: {np.max(np.abs(u)):.2e}")
-            
-            # # After slack update
-            # print(f"After slack - z max: {np.max(np.abs(z)):.2e}")
-            # print(f"After slack - v max: {np.max(np.abs(v)):.2e}")
-            
-            # # After dual update
-            # print(f"After dual - y max: {np.max(np.abs(y)):.2e}")
-            # print(f"After dual - g max: {np.max(np.abs(g)):.2e}")
-            
+    
             self.update_primal(x, u, d, p, q, r)
             self.update_slack(z, v, y, g, u, x)
             self.update_dual(y, g, u, x, z, v)
