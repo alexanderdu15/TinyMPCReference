@@ -131,31 +131,4 @@ class QuadrotorDynamics:
             np.hstack([np.zeros((6,3)), np.zeros((6,3)), np.eye(6)])
         ])
 
-    def apply_wind(self, x, wind_vec):
-        """Apply wind forces to the quadrotor
-        
-        Args:
-            x: current state
-            wind_vec: 3D wind vector [vx, vy, vz] in world frame
-        
-        Returns:
-            Additional acceleration vector due to wind
-        """
-        # Get current orientation quaternion
-        q = x[3:7]/np.linalg.norm(x[3:7])
-        
-        # Convert wind from world to body frame using rotation matrix
-        Q = self.qtoQ(q)
-        wind_body = Q.T @ wind_vec  # No need to stack, just rotate the 3D vector
-        
-        # Simple drag model: F = -k * v_rel^2
-        k_drag = 0.1  # drag coefficient
-        v_rel = wind_body - x[7:10]  # relative velocity
-        
-        # Compute drag force in body frame
-        F_drag = -k_drag * np.sign(v_rel) * v_rel**2
-        
-        # Convert force to acceleration
-        a_wind = F_drag / self.mass
-        
-        return a_wind
+   
