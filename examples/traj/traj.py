@@ -44,7 +44,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
     
     # Trajectory parameters
     amplitude = 0.5
-    w = 2*np.pi/5.0
+    w = 2*np.pi/4.0
     trajectory = Figure8Reference(A=amplitude, w=w, segment_type=traj_type)
     
     # Get the initial reference point and set initial state

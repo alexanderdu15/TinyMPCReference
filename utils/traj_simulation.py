@@ -107,7 +107,7 @@ def shift_steps(x_nom, u_nom, x_curr, goals=None, dt=None):
 
 def generate_wind(t):
     """Generate time-varying wind disturbance"""
-    wind_mean = np.array([0.2, 0.0, 0.3])
+    wind_mean = np.array([0.5, 0.0, 0.3])
     wind_freq = 0.5
     wind_amp = 0.5
     wind = wind_mean + wind_amp * np.array([
@@ -182,10 +182,12 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
         
         # Store additional metrics
         current_ref = trajectory.generate_reference(current_time)
-        pos_error = np.linalg.norm(x_curr[0:3] - current_ref[0:3])
-        att_error = np.linalg.norm(x_curr[3:7] - current_ref[3:7])
-        metrics['trajectory_costs'].append(pos_error + att_error)
-        metrics['control_efforts'].append(np.sum(np.abs(u_curr[1:])))  # Excluding thrust
+        pos_error = np.linalg.norm(x_curr[0:3] - current_ref[0:3])    # Position error
+        att_error = np.linalg.norm(x_curr[3:7] - current_ref[3:7])    # Attitude error
+        metrics['trajectory_costs'].append(pos_error + att_error)      # Tracking cost
+        metrics['control_efforts'].append(np.sum(np.abs(u_curr)))  # Sum of absolute motor commands
+
+        
         
         # Update rho if using adaptation
         if mpc.rho_adapter is not None:

@@ -210,7 +210,7 @@ class TinyMPC:
 
 
         #if trajectory following, set max_iter to 10
-        self.max_iter = 5
+        self.max_iter = 20
 
         for k in range(self.max_iter):
             print(f"\nIteration {k}:")
