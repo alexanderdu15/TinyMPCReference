@@ -19,7 +19,7 @@ def compute_hover_error(x_all, xg):
         errors.append(pos_error)
     return np.mean(errors), np.max(errors), errors
 
-def main(use_rho_adaptation=False, use_recaching=False):
+def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -86,14 +86,19 @@ def main(use_rho_adaptation=False, use_recaching=False):
     u_nom = np.tile(ug, (N-1,1)).T
 
     try:
-        print(f"Starting hover simulation{'with rho adaptation' if use_rho_adaptation else ''}...")
+        print(f"Starting hover simulation with:")
+        print(f"- Rho adaptation: {'enabled' if use_rho_adaptation else 'disabled'}")
+        print(f"- Cache recomputation: {'enabled' if use_recaching else 'disabled'}")
+        print(f"- Wind disturbance: {'enabled' if use_wind else 'disabled'}")
+
         simulation_result = simulate_with_controller(
             x0=x0,
             x_nom=x_nom,
             u_nom=u_nom,
             mpc=mpc,
             quad=quad,
-            NSIM=150
+            NSIM=150,
+            use_wind=use_wind
         )
 
         # Unpack results based on whether we're using rho adaptation
@@ -115,6 +120,8 @@ def main(use_rho_adaptation=False, use_recaching=False):
         suffix = '_normal'
         if use_rho_adaptation:
             suffix = '_adaptive'
+        if use_wind:
+            suffix += '_wind'
         if use_recaching:
             suffix += '_recache'
 
@@ -154,6 +161,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--adapt', action='store_true', help='Enable rho adaptation')
     parser.add_argument('--recache', action='store_true', help='Enable cache recomputation')
+    parser.add_argument('--wind', action='store_true', help='Enable wind disturbance')
     args = parser.parse_args()
     
-    main(use_rho_adaptation=args.adapt, use_recaching=args.recache)
+    main(use_rho_adaptation=args.adapt, use_recaching=args.recache, use_wind=args.wind)
