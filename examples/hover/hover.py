@@ -49,12 +49,13 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
 
     # Setup MPC
     N = 10
-    initial_rho = 85.0
+    initial_rho = getattr(main, 'last_rho', 85.0)  # Default 85.0 if first run
     
-    # Create rho adapter first if needed
-    rho_adapter = None
     if use_rho_adaptation:
+        print(f"Using warm-started rho: {initial_rho}")
         rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=60.0, rho_max=100.0)
+    else:
+        rho_adapter = None
     
     # Initialize MPC with rho adapter
     mpc = TinyMPC(
@@ -151,6 +152,11 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         if use_rho_adaptation:
             print(f"Final rho: {rho_history[-1]:.2f}")
             print(f"Rho range: [{min(rho_history):.2f}, {max(rho_history):.2f}]")
+
+        # Store final rho for next run
+        if use_rho_adaptation and rho_history:
+            main.last_rho = rho_history[-1]
+            print(f"Saved rho {main.last_rho} for next run")
 
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
