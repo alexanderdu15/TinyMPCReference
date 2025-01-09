@@ -75,12 +75,15 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
 
     # Setup PC
     N = 15
-    initial_rho = 1.0
 
-    rho_adapter = None
+    # Initialize rho (keep the last value from previous run)
+    initial_rho = getattr(main, 'last_rho', 1.0)  # Default 1.0 if first run
+    
     if use_rho_adaptation:
+        print(f"Using warm-started rho: {initial_rho}")
         rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=1.0, rho_max=200.0)
-       
+    else:
+        rho_adapter = None
 
     # Initialize MPC
     mpc = TinyMPC(
@@ -225,6 +228,11 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
         print(f"Total iterations: {sum(iterations)}")
         print(f"Average trajectory cost: {np.mean(metrics['trajectory_costs']):.4f}")
         print(f"Average control effort: {np.mean(metrics['control_efforts']):.4f}")
+
+        # Store final rho for next run
+        if use_rho_adaptation and rho_history:
+            main.last_rho = rho_history[-1]
+            print(f"Saved rho {main.last_rho} for next run")
 
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
