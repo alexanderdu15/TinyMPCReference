@@ -150,7 +150,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
         if use_rho_adaptation:
             x_all, u_all, iterations, rho_history, metrics = simulation_result
         else:
-            x_all, u_all, iterations, metrics = simulation_result
+            x_all, u_all, iterations, _, metrics = simulation_result
             rho_history = None
 
         # Now you can access the metrics separately
@@ -204,22 +204,36 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
         plt.grid(True)
 
         # Plot new metrics
-        plt.figure(figsize=(12, 4))
-        plt.subplot(1, 2, 1)
-        plt.plot(np.arange(len(metrics['trajectory_costs']))*quad.dt, 
-                 metrics['trajectory_costs'], label='Trajectory Cost')
-        plt.xlabel('Time [s]')
+        plt.figure(figsize=(15, 5))
+        
+        # Plot costs
+        plt.subplot(131)
+        costs = np.array(metrics['solve_costs'])
+        plt.plot(costs[:, 0], label='State Cost')
+        plt.plot(costs[:, 1], label='Input Cost')
+        plt.plot(costs[:, 2], label='Total Cost')
+        plt.xlabel('MPC Step')
         plt.ylabel('Cost')
-        plt.title('Trajectory Cost over Time')
-        plt.grid(True)
-
-        plt.subplot(1, 2, 2)
-        plt.plot(np.arange(len(metrics['control_efforts']))*quad.dt, 
-                 metrics['control_efforts'], label='Control Effort')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Total Torque')
-        plt.title('Control Effort over Time')
-        plt.grid(True)
+        plt.title(f'{"Adaptive" if use_rho_adaptation else "Fixed"} Rho Costs')
+        plt.legend()
+        
+        # Plot violations
+        plt.subplot(132)
+        violations = np.array(metrics['violations'])
+        plt.plot(violations[:, 0], label='Input Violation')
+        plt.plot(violations[:, 1], label='State Violation')
+        plt.xlabel('MPC Step')
+        plt.ylabel('Constraint Violation')
+        plt.title('Constraint Violations')
+        plt.legend()
+        
+        # Plot iterations (already doing this)
+        plt.subplot(133)
+        plt.plot(iterations, label='Iterations')
+        plt.xlabel('MPC Step')
+        plt.ylabel('Iterations')
+        plt.title('ADMM Iterations')
+        
         plt.tight_layout()
         plt.show()
 
