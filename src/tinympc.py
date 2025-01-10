@@ -180,10 +180,6 @@ class TinyMPC:
         return new_rho
 
     def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None):
-        print("\n=== ADMM Iteration Start ===")
-        print(f"Initial x max: {np.max(np.abs(x_init)):.2e}")
-        print(f"Initial u max: {np.max(np.abs(u_init)):.2e}")
-        
         status = 0
         x = np.copy(x_init)
         u = np.copy(u_init)
@@ -213,7 +209,7 @@ class TinyMPC:
         self.max_iter = 20
 
         for k in range(self.max_iter):
-            print(f"\nIteration {k}:")
+            
     
             self.update_primal(x, u, d, p, q, r)
             self.update_slack(z, v, y, g, u, x)

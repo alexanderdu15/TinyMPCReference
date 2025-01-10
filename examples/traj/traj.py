@@ -54,13 +54,6 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
     x0[7:10] = x_ref_0[6:9]    # All velocities (not just x and z)
     x0[10:13] = np.zeros(3)    # Zero angular velocity
 
-    # Debug print to verify initial state
-    print("\nInitial State:")
-    print(f"Position: {x0[0:3]}")
-    print(f"Quaternion: {x0[3:7]}")
-    print(f"Velocity: {x0[7:10]}")
-    print(f"Angular velocity: {x0[10:13]}")
-
     # Cost matrices
     max_dev_x = np.array([
         0.01, 0.01, 0.01,    # position (tighter)
@@ -120,11 +113,6 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
     for i in range(mpc.N):
         x_nom[:,i] = trajectory.generate_reference(i*quad.dt)
 
-    # Debug prints
-    print("\nNominal control check:")
-    print(f"Hover thrust: {quad.hover_thrust}")
-    print(f"Initial u_nom: {u_nom[:,0]}")
-    print(f"Mid-horizon u_nom: {u_nom[:,mpc.N//2]}")
 
     # Run simulation
     try:

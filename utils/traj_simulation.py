@@ -62,7 +62,7 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc, t=None, trajectory=None, quad=
     x_init[:,0] = delta_x
     u_init = np.copy(mpc.u_prev)
     
-    # Solve MPC with zero reference (since we're already in error coordinates)
+    
     x_out, u_out, status, k = mpc.solve_admm(x_init, u_init) 
     
     return u_nom[:,0] + u_out[:,0], k, status, x_out  # Return all 4 values
