@@ -5,7 +5,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 import numpy as np
 from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
-from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history
+from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_costs_comparison, plot_violations_comparison, save_metrics, plot_all_metrics, plot_state_and_costs
 from utils.traj_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 from utils.reference_trajectories import Figure8Reference
@@ -155,6 +155,13 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
 
         # Save data
         data_dir = Path('../data')
+        
+        # Create ALL necessary directories (including both old and new)
+        for dir_name in ['iterations', 'rho_history', 'trajectory_costs', 'control_efforts', 
+                        'costs', 'violations']:  # Added new directories while keeping old ones
+            (data_dir / dir_name).mkdir(parents=True, exist_ok=True)
+
+        # Determine suffix
         suffix = '_normal'
         if use_rho_adaptation:
             suffix = '_adaptive'
@@ -162,68 +169,28 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             suffix += '_wind'
         if use_recaching:
             suffix += '_recache'
-        suffix += f'_{traj_type}'  # Add trajectory type to suffix
+        suffix += f'_{traj_type}'
 
-        for dir_name in ['iterations', 'rho_history', 'trajectory_costs', 'control_efforts']:
-            (data_dir / dir_name).mkdir(exist_ok=True)
-
+        # Save ALL metrics (both old and new)
+        # Original metrics
         np.savetxt(data_dir / 'iterations' / f"traj{suffix}.txt", iterations)
-        
         if use_rho_adaptation:
             np.savetxt(data_dir / 'rho_history' / f"traj{suffix}.txt", rho_history)
-
-        # Save new metrics
         np.savetxt(data_dir / 'trajectory_costs' / f"traj{suffix}.txt", metrics['trajectory_costs'])
         np.savetxt(data_dir / 'control_efforts' / f"traj{suffix}.txt", metrics['control_efforts'])
 
-        # Visualize results
+        # Additional metrics for comparison
+        np.savetxt(data_dir / 'costs' / f"costs{suffix}.txt", metrics['solve_costs'])
+        np.savetxt(data_dir / 'violations' / f"violations{suffix}.txt", metrics['violations'])
+
         visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
-        plot_iterations(iterations)
-        if use_rho_adaptation:
-            plot_rho_history(rho_history)
 
-        # Plot tracking error
-        plt.figure(figsize=(10, 4))
-        plt.subplot(1, 2, 1)
-        plt.plot(np.arange(len(errors))*quad.dt, errors)
-        plt.xlabel('Time [s]')
-        plt.ylabel('L2 Position Error [m]')
-        plt.title('Tracking Error over Time')
-        plt.grid(True)
-
-        # Plot new metrics
-        plt.figure(figsize=(15, 5))
+        # Plot all metrics
+        plot_all_metrics(metrics, iterations, errors, rho_history, 
+                        use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
         
-        # Plot costs
-        plt.subplot(131)
-        costs = np.array(metrics['solve_costs'])
-        plt.plot(costs[:, 0], label='State Cost')
-        plt.plot(costs[:, 1], label='Input Cost')
-        plt.plot(costs[:, 2], label='Total Cost')
-        plt.xlabel('MPC Step')
-        plt.ylabel('Cost')
-        plt.title(f'{"Adaptive" if use_rho_adaptation else "Fixed"} Rho Costs')
-        plt.legend()
-        
-        # Plot violations
-        plt.subplot(132)
-        violations = np.array(metrics['violations'])
-        plt.plot(violations[:, 0], label='Input Violation')
-        plt.plot(violations[:, 1], label='State Violation')
-        plt.xlabel('MPC Step')
-        plt.ylabel('Constraint Violation')
-        plt.title('Constraint Violations')
-        plt.legend()
-        
-        # Plot iterations (already doing this)
-        plt.subplot(133)
-        plt.plot(iterations, label='Iterations')
-        plt.xlabel('MPC Step')
-        plt.ylabel('Iterations')
-        plt.title('ADMM Iterations')
-        
-        plt.tight_layout()
-        plt.show()
+        # Plot state and costs separately
+        plot_state_and_costs(metrics, use_rho_adaptation=use_rho_adaptation)
 
         print("\nSimulation completed successfully!")
         print(f"Average iterations per step: {np.mean(iterations):.2f}")
@@ -240,6 +207,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
         print(f"Error during simulation: {str(e)}")
         raise
 
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--adapt', action='store_true', 
@@ -248,6 +217,8 @@ if __name__ == "__main__":
                         help='Enable cache recomputation')
     parser.add_argument('--wind', action='store_true', 
                         help='Enable wind disturbance')
+    parser.add_argument('--plot-comparison', action='store_true',
+                        help='Plot comparison between adaptive and fixed runs')
     
     # Mutually exclusive group for trajectory type
     traj_group = parser.add_mutually_exclusive_group()
@@ -266,7 +237,11 @@ if __name__ == "__main__":
     else:
         traj_type = 'full'  # default
     
-    main(use_rho_adaptation=args.adapt, 
-         use_recaching=args.recache,
-         use_wind=args.wind,
-         traj_type=traj_type)
+    if args.plot_comparison:
+        from utils.visualization import plot_comparisons
+        plot_comparisons(traj_type=traj_type)
+    else:
+        main(use_rho_adaptation=args.adapt,
+             use_recaching=args.recache,
+             use_wind=args.wind,
+             traj_type=traj_type)
