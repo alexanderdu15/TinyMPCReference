@@ -65,7 +65,7 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc, t=None, trajectory=None, quad=
     # Solve MPC with zero reference (since we're already in error coordinates)
     x_out, u_out, status, k = mpc.solve_admm(x_init, u_init) 
     
-    return u_nom[:,0] + u_out[:,0], k
+    return u_nom[:,0] + u_out[:,0], k, status, x_out  # Return all 4 values
 
 
 def shift_steps(x_nom, u_nom, x_curr, goals=None, dt=None):
@@ -142,10 +142,13 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
     rho_history = [] if mpc.rho_adapter is not None else None
     current_time = 0.0
     
-    # New: Track metrics separately
+    # Add new metrics dictionaries
     metrics = {
         'trajectory_costs': [],
-        'control_efforts': []
+        'control_efforts': [],
+        'solve_costs': [],      # Cost for each MPC solve
+        'violations': [],       # Constraint violations for each solve
+        'iterations': []        # Already tracking this
     }
     
     # Compute simulation steps per MPC update
@@ -165,27 +168,58 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
                 #u_nom[:,j] = trajectory.compute_nominal_control(future_time, quad)
                 u_nom[:,j] = quad.hover_thrust.reshape(-1)
         # Run MPC step
-        u_curr, iters = tinympc_controller(x_curr, x_nom, u_nom, mpc, 
+        u, k, status, x_traj = tinympc_controller(x_curr, x_nom, u_nom, mpc, 
                                          current_time, trajectory, quad)
         
+        # Get current reference and compute error state (using delta_x_quat)
+        current_ref = trajectory.generate_reference(current_time)
+        state_error = delta_x_quat(x_curr, current_ref)  # This already handles quaternion properly
+        
+        # Compute costs
+        state_cost = float(state_error.T @ mpc.cache['Q'] @ state_error)
+        input_cost = float(u.T @ mpc.cache['R'] @ u)
+        total_cost = state_cost + input_cost
+        metrics['solve_costs'].append([state_cost, input_cost, total_cost])
+
+        # Compute constraint violations for this solve
+        u_violation = np.maximum(0, np.maximum(
+            np.abs(u) - mpc.umax, 
+            mpc.umin - np.abs(u)
+        ))
+        
+        # Convert state to reduced form for constraint checking
+        x_reduced = np.hstack([
+            x_curr[0:3],           # Position
+            quad.qtorp(x_curr[3:7]), # Convert quaternion to rpy
+            x_curr[7:10],          # Velocity
+            x_curr[10:13]          # Angular velocity
+        ])
+        x_violation = np.maximum(0, np.maximum(
+            np.abs(x_reduced) - mpc.xmax, 
+            mpc.xmin - np.abs(x_reduced)
+        ))
+        
+        metrics['violations'].append([np.sum(u_violation), np.sum(x_violation)])
+        metrics['iterations'].append(k)
+
         # Simulate with finer timestep
         for _ in range(n_sim_steps):
             # Only generate and apply wind if use_wind is True
             wind_vec = generate_wind(current_time) if use_wind else np.zeros(3)
-            x_curr = quad.dynamics_rk4(x_curr, u_curr, dt=dt_sim, wind_vec=wind_vec)
+            x_curr = quad.dynamics_rk4(x_curr, u, dt=dt_sim, wind_vec=wind_vec)
             current_time += dt_sim
         
         # Store basic results
         x_all.append(x_curr)
-        u_all.append(u_curr)
-        iterations.append(iters)
+        u_all.append(u)
+        iterations.append(k)
         
         # Store additional metrics
         current_ref = trajectory.generate_reference(current_time)
         pos_error = np.linalg.norm(x_curr[0:3] - current_ref[0:3])    # Position error
         att_error = np.linalg.norm(x_curr[3:7] - current_ref[3:7])    # Attitude error
         metrics['trajectory_costs'].append(pos_error + att_error)      # Tracking cost
-        metrics['control_efforts'].append(np.sum(np.abs(u_curr)))  # Sum of absolute motor commands
+        metrics['control_efforts'].append(np.sum(np.abs(u[1:])))  # Sum of absolute motor commands
 
         
         
@@ -205,4 +239,4 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
     if mpc.rho_adapter is not None:
         return x_all, u_all, iterations, rho_history, metrics
     else:
-        return x_all, u_all, iterations, metrics
+        return x_all, u_all, iterations, None, metrics  # Add None for rho_history
