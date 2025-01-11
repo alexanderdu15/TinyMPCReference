@@ -5,7 +5,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 import numpy as np
 from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
-from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_costs_comparison, plot_violations_comparison, save_metrics, plot_all_metrics, plot_state_and_costs
+from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_costs_comparison, plot_violations_comparison, save_metrics, plot_all_metrics, plot_state_and_costs, plot_comparisons
 from utils.traj_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 from utils.reference_trajectories import Figure8Reference
@@ -219,13 +219,13 @@ if __name__ == "__main__":
                         help='Enable wind disturbance')
     parser.add_argument('--plot-comparison', action='store_true',
                         help='Plot comparison between adaptive and fixed runs')
-    
-    # Mutually exclusive group for trajectory type
-    traj_group = parser.add_mutually_exclusive_group()
-    traj_group.add_argument('--straight', action='store_true', 
-                           help='Run straight segments only')
-    traj_group.add_argument('--curve', action='store_true', 
-                           help='Run curved segments only')
+    parser.add_argument('--plot-comparison-wind', action='store_true',
+                        help='Plot comparison between wind and no-wind cases')
+    # Add trajectory type arguments
+    parser.add_argument('--straight', action='store_true',
+                        help='Use straight line trajectory')
+    parser.add_argument('--curve', action='store_true',
+                        help='Use curved trajectory')
     
     args = parser.parse_args()
     
@@ -237,9 +237,9 @@ if __name__ == "__main__":
     else:
         traj_type = 'full'  # default
     
-    if args.plot_comparison:
-        from utils.visualization import plot_comparisons
-        plot_comparisons(traj_type=traj_type)
+    if args.plot_comparison or args.plot_comparison_wind:
+        plot_comparisons(traj_type=traj_type, 
+                        compare_type='wind' if args.plot_comparison_wind else 'normal')
     else:
         main(use_rho_adaptation=args.adapt,
              use_recaching=args.recache,

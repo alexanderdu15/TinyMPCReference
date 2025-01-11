@@ -202,6 +202,29 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
         metrics['violations'].append([np.sum(u_violation), np.sum(x_violation)])
         metrics['iterations'].append(k)
 
+        # Add detailed printing for solves
+        
+        print(f"\n=== Solve {i+1} Details ===")
+        print(f"Iterations needed: {k}")
+            
+        print("\nAccuracy:")
+        print(f"Position error: {np.linalg.norm(x_curr[0:3] - current_ref[0:3]):.6f}")
+        print(f"Attitude error: {np.linalg.norm(quad.qtorp(x_curr[3:7])):.6f}")
+            
+        print("\nCosts:")
+        print(f"State cost: {state_cost:.6f}")
+        print(f"Input cost: {input_cost:.6f}")
+        print(f"Total cost: {total_cost:.6f}")
+            
+        print("\nConstraint Violations:")
+        print(f"Input constraints: {np.sum(u_violation):.6f}")
+        print(f"State constraints: {np.sum(x_violation):.6f}")
+            
+        # if mpc.rho_adapter:
+        print(f"\nRho value: {mpc.cache['rho']:.6f}")
+            
+        print("=" * 50)
+
         # Simulate with finer timestep
         for _ in range(n_sim_steps):
             # Only generate and apply wind if use_wind is True
@@ -223,10 +246,11 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
 
         
         
-        # Update rho if using adaptation
+        # Update rho if using adaptation and only every 10th step
         if mpc.rho_adapter is not None:
-            new_rho = mpc.update_rho()
-            rho_history.append(new_rho)
+            #new_rho = mpc.update_rho()
+            #rho_history.append(new_rho)
+            rho_history.append(mpc.cache['rho'])
             
         # Shift nominal trajectories with goals
         x_nom, u_nom = shift_steps(x_nom, u_nom, x_curr, goals=goals)
