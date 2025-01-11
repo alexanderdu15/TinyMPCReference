@@ -264,9 +264,6 @@ class TinyMPC:
             print("Recaching cache terms")
             self.compute_cache_terms()
 
-        
-
-        
 
         return x, u, status, k
 
