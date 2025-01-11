@@ -289,44 +289,61 @@ def plot_state_and_costs(metrics, use_rho_adaptation=False):
     plt.tight_layout()
     plt.show()
 
-def plot_comparisons(data_dir='../data', traj_type='full'):
-    """Load saved data and create comparison plots"""
+def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'):
+    """
+    Load saved data and create comparison plots
+    compare_type: 'normal' (adaptive vs fixed) or 'wind' (adaptive+wind vs fixed+wind)
+    """
     try:
-        # Convert data_dir to Path object
         data_dir = Path(data_dir)
-        
-        # Load all metrics
         print("\nLoading metrics for comparison...")
         
-        # Load costs and violations
-        adaptive_costs = np.loadtxt(data_dir / 'costs' / f'costs_adaptive_{traj_type}.txt')
-        adaptive_violations = np.loadtxt(data_dir / 'violations' / f'violations_adaptive_{traj_type}.txt')
-        fixed_costs = np.loadtxt(data_dir / 'costs' / f'costs_normal_{traj_type}.txt')
-        fixed_violations = np.loadtxt(data_dir / 'violations' / f'violations_normal_{traj_type}.txt')
+        if compare_type == 'wind':
+            # Load adaptive with wind data
+            adaptive_costs = np.loadtxt(data_dir / 'costs' / f'costs_adaptive_wind_{traj_type}.txt')
+            adaptive_violations = np.loadtxt(data_dir / 'violations' / f'violations_adaptive_wind_{traj_type}.txt')
+            adaptive_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_adaptive_wind_{traj_type}.txt')
+            adaptive_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_adaptive_wind_{traj_type}.txt')
+            
+            # Load fixed with wind data
+            fixed_costs = np.loadtxt(data_dir / 'costs' / f'costs_normal_wind_{traj_type}.txt')
+            fixed_violations = np.loadtxt(data_dir / 'violations' / f'violations_normal_wind_{traj_type}.txt')
+            fixed_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_normal_wind_{traj_type}.txt')
+            fixed_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_normal_wind_{traj_type}.txt')
+            
+            title_suffix = 'with Wind'
+        else:  # normal comparison (adaptive vs fixed, no wind)
+            # Load adaptive data (no wind)
+            adaptive_costs = np.loadtxt(data_dir / 'costs' / f'costs_adaptive_{traj_type}.txt')
+            adaptive_violations = np.loadtxt(data_dir / 'violations' / f'violations_adaptive_{traj_type}.txt')
+            adaptive_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_adaptive_{traj_type}.txt')
+            adaptive_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_adaptive_{traj_type}.txt')
+            
+            # Load fixed data (no wind)
+            fixed_costs = np.loadtxt(data_dir / 'costs' / f'costs_normal_{traj_type}.txt')
+            fixed_violations = np.loadtxt(data_dir / 'violations' / f'violations_normal_{traj_type}.txt')
+            fixed_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_normal_{traj_type}.txt')
+            fixed_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_normal_{traj_type}.txt')
+            
+            title_suffix = 'no Wind'
         
-        # Load trajectory costs and control efforts
-        adaptive_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_adaptive_{traj_type}.txt')
-        adaptive_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_adaptive_{traj_type}.txt')
-        fixed_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_normal_{traj_type}.txt')
-        fixed_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_normal_{traj_type}.txt')
-        
-        # Create comprehensive comparison plot
-        plt.figure(figsize=(20, 10))
+        # Create figure with extra space on right for stats
+        plt.figure(figsize=(22, 10))  # Made figure wider to accommodate stats
         
         # State Costs
         plt.subplot(231)
-        plt.plot(adaptive_costs[:, 0], label='Adaptive', alpha=0.8)
-        plt.plot(fixed_costs[:, 0], label='Fixed', alpha=0.8)
+        plt.plot(fixed_costs[:, 0], 'b-o', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
+        plt.plot(adaptive_costs[:, 0], 'r-^', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
         plt.ylabel('State Cost')
-        plt.title('State Costs Comparison')
+        plt.title(f'State Costs Comparison ({title_suffix})')
         plt.legend()
         plt.grid(True)
         
         # Input Costs
         plt.subplot(232)
-        plt.plot(adaptive_costs[:, 1], label='Adaptive', alpha=0.8)
-        plt.plot(fixed_costs[:, 1], label='Fixed', alpha=0.8)
+        plt.plot(fixed_costs[:, 1], 'b-s', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
+        plt.plot(adaptive_costs[:, 1], 'r-d', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
         plt.ylabel('Input Cost')
         plt.title('Input Costs Comparison')
@@ -335,59 +352,82 @@ def plot_comparisons(data_dir='../data', traj_type='full'):
         
         # Input Violations
         plt.subplot(233)
-        plt.plot(adaptive_violations[:, 0], label='Adaptive', alpha=0.8)
-        plt.plot(fixed_violations[:, 0], label='Fixed', alpha=0.8)
+        plt.plot(fixed_violations[:, 0], 'b-*', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
+        plt.plot(adaptive_violations[:, 0], 'r-p', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
         plt.ylabel('Input Constraint Violation')
-        plt.title('Input Violations Comparison')
+        plt.title('Input Violations')
         plt.legend()
         plt.grid(True)
-        
-        # Trajectory Costs
+
+        # State Violations (with adjusted scale)
         plt.subplot(234)
-        plt.plot(adaptive_traj_costs, label='Adaptive', alpha=0.8)
-        plt.plot(fixed_traj_costs, label='Fixed', alpha=0.8)
+        plt.plot(fixed_violations[:, 1], 'b-*', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
+        plt.plot(adaptive_violations[:, 1], 'r-p', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
-        plt.ylabel('Trajectory Cost')
-        plt.title('Trajectory Costs Comparison')
+        plt.ylabel('State Constraint Violation')
+        plt.title('State Violations (×10⁻³)')
         plt.legend()
         plt.grid(True)
         
         # Control Efforts
         plt.subplot(235)
-        plt.plot(adaptive_control, label='Adaptive', alpha=0.8)
-        plt.plot(fixed_control, label='Fixed', alpha=0.8)
+        plt.plot(fixed_control, 'b-x', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
+        plt.plot(adaptive_control, 'r-+', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
         plt.ylabel('Control Effort')
-        plt.title('Control Efforts Comparison')
+        plt.title('Control Efforts')
         plt.legend()
         plt.grid(True)
         
-        # Statistics
+        
+        
+        # Trajectory Costs
         plt.subplot(236)
+        plt.plot(fixed_traj_costs, 'b-v', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
+        plt.plot(adaptive_traj_costs, 'r-^', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
+        plt.xlabel('MPC Step')
+        plt.ylabel('Trajectory Cost')
+        plt.title('Trajectory Costs')
+        plt.legend()
+        plt.grid(True)
+        
+        # Add statistics box to the right of plots
         stats_text = (
             f'Average Metrics:\n\n'
             f'State Cost:\n'
-            f'  Adaptive: {np.mean(adaptive_costs[:, 0]):.3f}\n'
-            f'  Fixed: {np.mean(fixed_costs[:, 0]):.3f}\n\n'
+            f'  Fixed: {np.mean(fixed_costs[:, 0]):.3f}\n'
+            f'  Adaptive: {np.mean(adaptive_costs[:, 0]):.3f}\n\n'
+            f'Input Cost:\n'
+            f'  Fixed: {np.mean(fixed_costs[:, 1]):.3f}\n'
+            f'  Adaptive: {np.mean(adaptive_costs[:, 1]):.3f}\n\n'
+            f'Total Cost:\n'
+            f'  Fixed: {np.mean(fixed_costs[:, 0] + fixed_costs[:, 1]):.3f}\n'
+            f'  Adaptive: {np.mean(adaptive_costs[:, 0] + adaptive_costs[:, 1]):.3f}\n\n'
             f'Input Violation:\n'
-            f'  Adaptive: {np.mean(adaptive_violations[:, 0]):.3f}\n'
-            f'  Fixed: {np.mean(fixed_violations[:, 0]):.3f}\n\n'
+            f'  Fixed: {np.mean(fixed_violations[:, 0]):.3f}\n'
+            f'  Adaptive: {np.mean(adaptive_violations[:, 0]):.3f}\n\n'
+            f'State Violation:\n'
+            f'  Fixed: {np.mean(fixed_violations[:, 1]):.3f}\n'
+            f'  Adaptive: {np.mean(adaptive_violations[:, 1]):.3f}\n\n'
+            f'Total Violation:\n'
+            f'  Fixed: {np.mean(fixed_violations[:, 0] + fixed_violations[:, 1]):.3f}\n'
+            f'  Adaptive: {np.mean(adaptive_violations[:, 0] + adaptive_violations[:, 1]):.3f}\n\n'
             f'Trajectory Cost:\n'
-            f'  Adaptive: {np.mean(adaptive_traj_costs):.3f}\n'
-            f'  Fixed: {np.mean(fixed_traj_costs):.3f}'
+            f'  Fixed: {np.mean(fixed_traj_costs):.3f}\n'
+            f'  Adaptive: {np.mean(adaptive_traj_costs):.3f}'
         )
-        plt.text(0.1, 0.1, stats_text, fontsize=10, bbox=dict(facecolor='white', alpha=0.8))
-        plt.axis('off')
-        plt.title('Statistics')
+        # Place stats box to the right of plots
+        plt.figtext(0.92, 0.5, stats_text, 
+                   fontsize=10,
+                   bbox=dict(facecolor='white', edgecolor='black', alpha=0.8),
+                   verticalalignment='center')
         
         plt.tight_layout()
+        # Adjust layout to make room for stats box
+        plt.subplots_adjust(right=0.88)
         plt.show()
         
     except FileNotFoundError as e:
-        print("\nError: Make sure you've run both adaptive and fixed cases before comparison")
+        print("\nError: Make sure you've run both cases before comparison")
         print(f"Missing file: {e}")
-        print("\nRun these commands first:")
-        print("1. python traj.py")
-        print("2. python traj.py --adapt")
-        print("Then run: python traj.py --plot-comparison")
