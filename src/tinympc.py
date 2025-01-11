@@ -180,6 +180,12 @@ class TinyMPC:
         return new_rho
 
     def solve_admm(self, x_init, u_init, x_ref=None, u_ref=None):
+
+        if not hasattr(self, 'solve_count'):
+            self.solve_count = 0
+
+        self.solve_count += 1
+
         status = 0
         x = np.copy(x_init)
         u = np.copy(u_init)
@@ -221,11 +227,24 @@ class TinyMPC:
             dua_res_input = np.max(np.abs(self.cache['rho'] * (z_prev - z)))
             dua_res_state = np.max(np.abs(self.cache['rho'] * (v_prev - v)))
 
+
+            # if self.solve_count < 2:
+            #     print(f"Solve {self.solve_count + 1} - Iteration {k}")
+            #     print(f"Pri Res Input: {pri_res_input}")
+            #     print(f"Dua Res Input: {dua_res_input}")
+            #     print(f"Pri Res State: {pri_res_state}")
+            #     print(f"Dua Res State: {dua_res_state}")
+
+
+
             z_prev = np.copy(z)
             v_prev = np.copy(v)
 
+            
+
             if (pri_res_input < self.abs_pri_tol and dua_res_input < self.abs_dua_tol and
                 pri_res_state < self.abs_pri_tol and dua_res_state < self.abs_dua_tol):
+                print("Converged after ", k, " iterations")
                 status = 1
                 break
 
@@ -238,9 +257,14 @@ class TinyMPC:
         self.y_prev = y
         self.q_prev = q
 
+        if self.rho_adapter is not None:
+                self.update_rho()
+
         if self.recache:
             print("Recaching cache terms")
             self.compute_cache_terms()
+
+        
 
         
 
