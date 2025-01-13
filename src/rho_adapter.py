@@ -139,13 +139,6 @@ class RhoAdapter:
                 q_blocks.append(q_x)
         q = np.vstack(q_blocks)
 
-        # print(f"x shape: {x.shape}")
-        # print(f"A shape: {A.shape}")
-        # print(f"z shape: {z.shape}")
-        # print(f"y shape: {y.shape}")
-        # print(f"P shape: {P.shape}")
-        # print(f"q shape: {q.shape}")
-
         return x, A, z, y, P, q
 
 
@@ -183,14 +176,18 @@ class RhoAdapter:
 
     def predict_rho(self, pri_res, dual_res, pri_norm, dual_norm, current_rho):
         """Predict new rho value based on residuals"""
+
         normalized_pri = pri_res / (pri_norm + 1e-10)
         normalized_dual = dual_res / (dual_norm + 1e-10)
         
         rho_new = current_rho * np.sqrt(normalized_pri / (normalized_dual + 1e-10))
         rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
-        
+
         self.rho_history.append(rho_new)
         return rho_new
+
+
+
 
     def update_matrices(self, cache, new_rho):
         """Update matrices using derivatives stored in cache"""

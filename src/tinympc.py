@@ -212,7 +212,7 @@ class TinyMPC:
 
 
         #if trajectory following, set max_iter to 10
-        self.max_iter = 20
+        self.max_iter = 50
 
         for k in range(self.max_iter):
             
@@ -228,19 +228,8 @@ class TinyMPC:
             dua_res_state = np.max(np.abs(self.cache['rho'] * (v_prev - v)))
 
 
-            # if self.solve_count < 2:
-            #     print(f"Solve {self.solve_count + 1} - Iteration {k}")
-            #     print(f"Pri Res Input: {pri_res_input}")
-            #     print(f"Dua Res Input: {dua_res_input}")
-            #     print(f"Pri Res State: {pri_res_state}")
-            #     print(f"Dua Res State: {dua_res_state}")
-
-
-
             z_prev = np.copy(z)
             v_prev = np.copy(v)
-
-            
 
             if (pri_res_input < self.abs_pri_tol and dua_res_input < self.abs_dua_tol and
                 pri_res_state < self.abs_pri_tol and dua_res_state < self.abs_dua_tol):

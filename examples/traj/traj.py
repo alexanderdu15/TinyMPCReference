@@ -130,7 +130,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             dt_sim=0.01,
             #dt_mpc=quad.dt,
             dt_mpc=0.02,
-            NSIM=300,
+            NSIM=200,
             use_wind=use_wind
         )
 
