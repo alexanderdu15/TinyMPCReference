@@ -6,7 +6,7 @@ import numpy as np
 from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
 from src.rho_adapter import RhoAdapter
-from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history
+from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_all_metrics, plot_state_and_costs, save_metrics
 from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 import matplotlib.pyplot as plt
@@ -92,6 +92,19 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         print(f"- Cache recomputation: {'enabled' if use_recaching else 'disabled'}")
         print(f"- Wind disturbance: {'enabled' if use_wind else 'disabled'}")
 
+        metrics = {
+            'trajectory_costs': [],
+            'control_efforts': [],
+            'solve_costs': [],
+            'violations': [],
+            'state_costs': [],
+            'input_costs': [],
+            'total_costs': [],
+            'state_violations': [],
+            'input_violations': [],
+            'total_violations': []
+        }
+        
         simulation_result = simulate_with_controller(
             x0=x0,
             x_nom=x_nom,
@@ -104,9 +117,9 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
 
         # Unpack results based on whether we're using rho adaptation
         if use_rho_adaptation:
-            x_all, u_all, iterations, rho_history = simulation_result
+            x_all, u_all, iterations, rho_history, metrics = simulation_result
         else:
-            x_all, u_all, iterations = simulation_result
+            x_all, u_all, iterations, _, metrics = simulation_result
             rho_history = None
 
         # Compute tracking error
@@ -149,6 +162,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         print("\nSimulation completed successfully!")
         print(f"Average iterations per step: {np.mean(iterations):.2f}")
         print(f"Total iterations: {sum(iterations)}")
+        print(f"Average trajectory cost: {np.mean(metrics['trajectory_costs']):.4f}")
+        print(f"Average control effort: {np.mean(metrics['control_efforts']):.4f}")
         if use_rho_adaptation:
             print(f"Final rho: {rho_history[-1]:.2f}")
             print(f"Rho range: [{min(rho_history):.2f}, {max(rho_history):.2f}]")
@@ -157,6 +172,11 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         if use_rho_adaptation and rho_history:
             main.last_rho = rho_history[-1]
             print(f"Saved rho {main.last_rho} for next run")
+
+        # Add metric plotting
+        plot_all_metrics(metrics, iterations, errors, rho_history, 
+                        use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
+        plot_state_and_costs(metrics, use_rho_adaptation=use_rho_adaptation)
 
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
