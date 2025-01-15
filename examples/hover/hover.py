@@ -6,7 +6,7 @@ import numpy as np
 from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
 from src.rho_adapter import RhoAdapter
-from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_all_metrics, plot_state_and_costs, save_metrics
+from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_all_metrics, plot_state_and_costs, save_metrics, plot_comparisons
 from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 import matplotlib.pyplot as plt
@@ -20,6 +20,12 @@ def compute_hover_error(x_all, xg):
     return np.mean(errors), np.max(errors), errors
 
 def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
+    """Main function for hover example"""
+    print("\nStarting hover simulation with:")
+    print(f"- Rho adaptation: {'enabled' if use_rho_adaptation else 'disabled'}")
+    print(f"- Cache recomputation: {'enabled' if use_recaching else 'disabled'}")
+    print(f"- Wind disturbance: {'enabled' if use_wind else 'disabled'}")
+    
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -86,108 +92,111 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
     x_nom = np.tile(0*xg_euler, (N,1)).T
     u_nom = np.tile(ug, (N-1,1)).T
 
-    try:
-        print(f"Starting hover simulation with:")
-        print(f"- Rho adaptation: {'enabled' if use_rho_adaptation else 'disabled'}")
-        print(f"- Cache recomputation: {'enabled' if use_recaching else 'disabled'}")
-        print(f"- Wind disturbance: {'enabled' if use_wind else 'disabled'}")
+    # Run simulation
+    simulation_result = simulate_with_controller(
+        x0=x0,
+        x_nom=x_nom,
+        u_nom=u_nom,
+        mpc=mpc,
+        quad=quad,
+        NSIM=150,
+        use_wind=use_wind
+    )
+    
+    # Unpack results
+    
 
-        metrics = {
-            'trajectory_costs': [],
-            'control_efforts': [],
-            'solve_costs': [],
-            'violations': [],
-            'state_costs': [],
-            'input_costs': [],
-            'total_costs': [],
-            'state_violations': [],
-            'input_violations': [],
-            'total_violations': []
-        }
+    if use_rho_adaptation:
+        x_all, u_all, iterations, rho_history, metrics = simulation_result
+    else:
+        x_all, u_all, iterations, _, metrics = simulation_result
+        rho_history = None
+    
+    # Now you can access the metrics separately
+    trajectory_costs = metrics['trajectory_costs']
+    control_efforts = metrics['control_efforts']
+
         
-        simulation_result = simulate_with_controller(
-            x0=x0,
-            x_nom=x_nom,
-            u_nom=u_nom,
-            mpc=mpc,
-            quad=quad,
-            NSIM=150,
-            use_wind=use_wind
-        )
 
-        # Unpack results based on whether we're using rho adaptation
-        if use_rho_adaptation:
-            x_all, u_all, iterations, rho_history, metrics = simulation_result
-        else:
-            x_all, u_all, iterations, _, metrics = simulation_result
-            rho_history = None
+    # Compute and display tracking error
+    avg_error, max_error, errors = compute_hover_error(x_all, xg)
+    print("\nTracking Error Statistics:")
+    print(f"Average L2 Error: {avg_error:.4f} meters")
+    print(f"Maximum L2 Error: {max_error:.4f} meters")
 
-        # Compute tracking error
-        avg_error, max_error, errors = compute_hover_error(x_all, xg)
-        print("\nTracking Error Statistics:")
-        print(f"Average L2 Error: {avg_error:.4f} meters")
-        print(f"Maximum L2 Error: {max_error:.4f} meters")
-
-        # Save data
-        data_dir = Path('../data')
-   
-        suffix = '_normal'
-        if use_rho_adaptation:
-            suffix = '_adaptive'
-        if use_wind:
-            suffix += '_wind'
-        if use_recaching:
-            suffix += '_recache'
-
-        np.savetxt(data_dir / 'iterations' / f"hover{suffix}.txt", iterations)
+    # Save data
+    data_dir = Path('../data')
         
-        if use_rho_adaptation:
-            np.savetxt(data_dir / 'rho_history' / f"hover{suffix}.txt", rho_history)
+    # Create ALL necessary directories (including both old and new)
+    for dir_name in ['iterations', 'rho_history', 'trajectory_costs', 'control_efforts', 
+                    'costs', 'violations']:  # Added new directories while keeping old ones
+        (data_dir / dir_name).mkdir(parents=True, exist_ok=True)
 
-        # Visualize results
-        visualize_trajectory(x_all, u_all, xg, ug)
-        plot_iterations(iterations)
-        if use_rho_adaptation:
-            plot_rho_history(rho_history)
+    # Determine suffix
+    suffix = '_normal'
+    if use_rho_adaptation:
+        suffix = '_adaptive'
+    if use_wind:
+        suffix += '_wind'
+    if use_recaching:
+        suffix += '_recache'
+    suffix += f'_hover'
 
-        # Plot tracking error
-        plt.figure(figsize=(10, 4))
-        plt.plot(np.arange(len(errors))*quad.dt, errors)
-        plt.xlabel('Time [s]')
-        plt.ylabel('L2 Position Error [m]')
-        plt.title('Hover Error over Time')
-        plt.grid(True)
-        plt.show()
+    # Save ALL metrics (both old and new)
+    # Original metrics
+    np.savetxt(data_dir / 'iterations' / f"traj{suffix}.txt", iterations)
+    if use_rho_adaptation:
+        np.savetxt(data_dir / 'rho_history' / f"traj{suffix}.txt", rho_history)
+    np.savetxt(data_dir / 'trajectory_costs' / f"traj{suffix}.txt", metrics['trajectory_costs'])
+    np.savetxt(data_dir / 'control_efforts' / f"traj{suffix}.txt", metrics['control_efforts'])
 
-        print("\nSimulation completed successfully!")
-        print(f"Average iterations per step: {np.mean(iterations):.2f}")
-        print(f"Total iterations: {sum(iterations)}")
-        print(f"Average trajectory cost: {np.mean(metrics['trajectory_costs']):.4f}")
-        print(f"Average control effort: {np.mean(metrics['control_efforts']):.4f}")
-        if use_rho_adaptation:
-            print(f"Final rho: {rho_history[-1]:.2f}")
-            print(f"Rho range: [{min(rho_history):.2f}, {max(rho_history):.2f}]")
+    # Additional metrics for comparison
+    np.savetxt(data_dir / 'costs' / f"costs{suffix}.txt", metrics['solve_costs'])
+    np.savetxt(data_dir / 'violations' / f"violations{suffix}.txt", metrics['violations'])
 
-        # Store final rho for next run
-        if use_rho_adaptation and rho_history:
-            main.last_rho = rho_history[-1]
-            print(f"Saved rho {main.last_rho} for next run")
+    visualize_trajectory(x_all, u_all, dt=quad.dt)
 
-        # Add metric plotting
-        plot_all_metrics(metrics, iterations, errors, rho_history, 
-                        use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
-        plot_state_and_costs(metrics, use_rho_adaptation=use_rho_adaptation)
+    # Plot all metrics
+    plot_all_metrics(metrics, iterations, errors, rho_history, 
+                    use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
+        
+    # Plot state and costs separately
+    plot_state_and_costs(metrics, use_rho_adaptation=use_rho_adaptation)
 
-    except Exception as e:
-        print(f"Error during simulation: {str(e)}")
-        raise
+    print("\nSimulation completed successfully!")
+    print(f"Average iterations per step: {np.mean(iterations):.2f}")
+    print(f"Total iterations: {sum(iterations)}")
+    print(f"Average trajectory cost: {np.mean(metrics['trajectory_costs']):.4f}")
+    print(f"Average control effort: {np.mean(metrics['control_efforts']):.4f}")
+
+    # Store final rho for next run
+    if use_rho_adaptation and rho_history:
+        main.last_rho = rho_history[-1]
+        print(f"Saved rho {main.last_rho} for next run")
+
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--adapt', action='store_true', help='Enable rho adaptation')
-    parser.add_argument('--recache', action='store_true', help='Enable cache recomputation')
-    parser.add_argument('--wind', action='store_true', help='Enable wind disturbance')
+    parser.add_argument('--adapt', action='store_true', 
+                        help='Enable rho adaptation')
+    parser.add_argument('--recache', action='store_true', 
+                        help='Enable cache recomputation')
+    parser.add_argument('--wind', action='store_true', 
+                        help='Enable wind disturbance')
+    parser.add_argument('--plot-comparison', action='store_true',
+                        help='Plot comparison between adaptive and fixed runs')
+    
     args = parser.parse_args()
     
-    main(use_rho_adaptation=args.adapt, use_recaching=args.recache, use_wind=args.wind)
+    if args.plot_comparison:
+        from utils.visualization import plot_comparisons
+        plot_comparisons(traj_type='hover')
+    else:
+        main(
+            use_rho_adaptation=args.adapt,
+            use_recaching=args.recache,
+            use_wind=args.wind
+        )
+        
+       
