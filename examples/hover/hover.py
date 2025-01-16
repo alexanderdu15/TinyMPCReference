@@ -47,7 +47,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
 
     # Cost matrices
     max_dev_x = np.array([0.1, 0.1, 0.1, 0.5, 0.5, 0.05, 0.5, 0.5, 0.5, 0.7, 0.7, 0.2])
-    max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])/6
+    max_dev_u = np.array([0.5, 0.5, 0.5, 0.5])
     Q = np.diag(1./max_dev_x**2)
     R = np.diag(1./max_dev_u**2)
 
@@ -99,7 +99,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         u_nom=u_nom,
         mpc=mpc,
         quad=quad,
-        NSIM=150,
+        NSIM=100,
         use_wind=use_wind
     )
     
@@ -186,17 +186,18 @@ if __name__ == "__main__":
                         help='Enable wind disturbance')
     parser.add_argument('--plot-comparison', action='store_true',
                         help='Plot comparison between adaptive and fixed runs')
+
+    parser.add_argument('--plot-comparison-wind', action='store_true',
+                        help='Plot comparison between wind and no-wind cases')
     
     args = parser.parse_args()
     
-    if args.plot_comparison:
-        from utils.visualization import plot_comparisons
-        plot_comparisons(traj_type='hover')
+    if args.plot_comparison or args.plot_comparison_wind:
+        plot_comparisons(traj_type='hover', 
+                        compare_type='wind' if args.plot_comparison_wind else 'normal')
     else:
-        main(
-            use_rho_adaptation=args.adapt,
-            use_recaching=args.recache,
-            use_wind=args.wind
-        )
-        
+        main(use_rho_adaptation=args.adapt,
+             use_recaching=args.recache,
+             use_wind=args.wind)
+
        

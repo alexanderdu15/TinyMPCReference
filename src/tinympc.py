@@ -211,7 +211,7 @@ class TinyMPC:
             u_ref = np.zeros(u.shape)
 
 
-        #if trajectory following, set max_iter to 10
+        
         self.max_iter = 50
 
         for k in range(self.max_iter):

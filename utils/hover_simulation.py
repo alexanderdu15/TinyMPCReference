@@ -55,9 +55,9 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc):
 
 def generate_wind(t):
     """Generate time-varying wind disturbance"""
-    wind_mean = np.array([0.5, 0.0, 0.3])
-    wind_freq = 0.5
-    wind_amp = 0.5
+    wind_mean = np.array([0.01, 0.0, 0.03])
+    wind_freq = 0.05
+    wind_amp = 0.05
     wind = wind_mean + wind_amp * np.array([
         np.sin(wind_freq * t),
         np.cos(wind_freq * t),
