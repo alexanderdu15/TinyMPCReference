@@ -2,7 +2,7 @@
 import numpy as np
 
 class TinyMPC:
-    def __init__(self, A, B, Q, R, Nsteps, rho=1.0, n_dlqr_steps=500, rho_adapter=None, recache = False):
+    def __init__(self, A, B, Q, R, Nsteps, rho=1.0, n_dlqr_steps=500, rho_adapter=None, recache = False, mode = 'hover'):
         """Initialize TinyMPC with direct system matrices and compute DLQR automatically
         
         Args:
@@ -43,6 +43,9 @@ class TinyMPC:
         self.x_prev = np.zeros((self.nx, self.N))
         self.u_prev = np.zeros((self.nu, self.N-1))
 
+        self.Q = Q
+        self.R = R
+
         # Compute cache terms 
         self.compute_cache_terms()
 
@@ -50,11 +53,17 @@ class TinyMPC:
         self.rho_adapter = rho_adapter
         if self.rho_adapter:
             self.rho_adapter.initialize_derivatives(self.cache)
+
+        self.mode = mode
         
         # Set default tolerances and iterations
         self.set_tols_iters()
 
         self.recache = recache
+
+        
+
+        
 
     def _compute_dlqr(self, A, B, Q, R, n_steps):
         """Compute Discrete-time LQR solution"""
@@ -75,6 +84,7 @@ class TinyMPC:
         B = self.cache['B']
         Kinf = np.zeros(B.T.shape)
         Pinf = np.copy(self.cache['Q'])
+        #Pinf = np.copy(self.Q)
 
         # Compute infinite horizon solution
         for k in range(5000):
@@ -114,6 +124,24 @@ class TinyMPC:
         self.backward_pass_grad(d, p, q, r)
         self.forward_pass(x, u, d)
 
+
+    # def update_slack(self, z, v, y, g, u, x, umax = None, umin = None, xmax = None, xmin = None):
+    #     for k in range(self.N - 1):
+    #         z[:, k] = u[:, k] + y[:, k]
+    #         v[:, k] = x[:, k] + g[:, k]
+
+    #         if (umin is not None) and (umax is not None):
+    #             z[:, k] = np.clip(z[:, k], umin, umax)
+
+    #         if (xmin is not None) and (xmax is not None):
+    #             v[:, k] = np.clip(v[:, k], xmin, xmax)
+
+    #     v[:, self.N-1] = x[:, self.N-1] + g[:, self.N-1]
+    #     if (xmin is not None) and (xmax is not None):
+    #         v[:, self.N-1] = np.clip(v[:, self.N-1], xmin, xmax)
+
+    
+
     def update_slack(self, z, v, y, g, u, x):
         """Update slack variables"""
         for k in range(self.N - 1):
@@ -148,7 +176,11 @@ class TinyMPC:
 
     def set_tols_iters(self, max_iter=500, abs_pri_tol=1e-2, abs_dua_tol=1e-2):
 
-        self.max_iter = max_iter
+        if self.mode == 'hover':
+            self.max_iter = 500
+        else:
+            self.max_iter = 50
+
         self.abs_pri_tol = abs_pri_tol
         self.abs_dua_tol = abs_dua_tol
 
@@ -210,10 +242,6 @@ class TinyMPC:
         if (u_ref is None):
             u_ref = np.zeros(u.shape)
 
-
-        
-        self.max_iter = 50
-
         for k in range(self.max_iter):
             
     
@@ -231,6 +259,8 @@ class TinyMPC:
             z_prev = np.copy(z)
             v_prev = np.copy(v)
 
+            
+
             if (pri_res_input < self.abs_pri_tol and dua_res_input < self.abs_dua_tol and
                 pri_res_state < self.abs_pri_tol and dua_res_state < self.abs_dua_tol):
                 print("Converged after ", k, " iterations")
@@ -247,7 +277,9 @@ class TinyMPC:
         self.q_prev = q
 
         if self.rho_adapter is not None:
-                self.update_rho()
+            self.update_rho()
+
+       
 
         if self.recache:
             print("Recaching cache terms")
