@@ -54,7 +54,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
 
 
     # Setup MPC
-    N = 10
+    N = 5
     initial_rho = getattr(main, 'last_rho', 85.0)  # Default 85.0 if first run
     
     if use_rho_adaptation:
@@ -72,7 +72,9 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         Nsteps=N,
         rho=initial_rho,
         rho_adapter=rho_adapter,
-        recache=use_recaching
+        recache=use_recaching,
+        mode = 'hover'
+
     )
 
     if use_rho_adaptation:
