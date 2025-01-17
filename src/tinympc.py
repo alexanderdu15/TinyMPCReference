@@ -124,24 +124,6 @@ class TinyMPC:
         self.backward_pass_grad(d, p, q, r)
         self.forward_pass(x, u, d)
 
-
-    # def update_slack(self, z, v, y, g, u, x, umax = None, umin = None, xmax = None, xmin = None):
-    #     for k in range(self.N - 1):
-    #         z[:, k] = u[:, k] + y[:, k]
-    #         v[:, k] = x[:, k] + g[:, k]
-
-    #         if (umin is not None) and (umax is not None):
-    #             z[:, k] = np.clip(z[:, k], umin, umax)
-
-    #         if (xmin is not None) and (xmax is not None):
-    #             v[:, k] = np.clip(v[:, k], xmin, xmax)
-
-    #     v[:, self.N-1] = x[:, self.N-1] + g[:, self.N-1]
-    #     if (xmin is not None) and (xmax is not None):
-    #         v[:, self.N-1] = np.clip(v[:, self.N-1], xmin, xmax)
-
-    
-
     def update_slack(self, z, v, y, g, u, x):
         """Update slack variables"""
         for k in range(self.N - 1):
