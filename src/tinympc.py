@@ -258,7 +258,7 @@ class TinyMPC:
         self.y_prev = y
         self.q_prev = q
 
-        if self.rho_adapter is not None:
+        if self.rho_adapter is not None :
             self.update_rho()
 
        

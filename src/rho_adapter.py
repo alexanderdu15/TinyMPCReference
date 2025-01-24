@@ -179,13 +179,15 @@ class RhoAdapter:
 
         normalized_pri = pri_res / (pri_norm + 1e-10)
         normalized_dual = dual_res / (dual_norm + 1e-10)
+
+        ratio = normalized_pri / (normalized_dual + 1e-10)
         
-        rho_new = current_rho * np.sqrt(normalized_pri / (normalized_dual + 1e-10))
+        rho_new = current_rho * np.sqrt(ratio)
+        #rho_new = current_rho * (np.sqrt(ratio) if ratio > 1 else ratio)
         rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
 
         self.rho_history.append(rho_new)
         return rho_new
-
 
 
 

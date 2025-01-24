@@ -75,13 +75,13 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, NSIM=100, use_wind=Fal
     current_time = 0.0
     dt = quad.dt
     
-    # Initialize metrics dictionary
+    # Initialize metrics dictionary with 2D violations like trajectory
     metrics = {
         'trajectory_costs': [],
         'control_efforts': [],
-        'solve_costs': [],      # Cost for each MPC solve
-        'violations': [],       # Constraint violations for each solve
-        'iterations': []        # Already tracking this
+        'solve_costs': [],  # Will store [state_cost, input_cost, total_cost]
+        'violations': [],   # Will store [u_violation, x_violation]
+        'iterations': []
     }
 
     for i in range(NSIM):
@@ -91,24 +91,23 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, NSIM=100, use_wind=Fal
         # Compute state error
         state_error = delta_x_quat(x_curr)
         
-        # Compute costs
+        # Compute costs like in trajectory simulation
         state_cost = float(state_error.T @ mpc.cache['Q'] @ state_error)
         input_cost = float(u.T @ mpc.cache['R'] @ u)
         total_cost = state_cost + input_cost
         metrics['solve_costs'].append([state_cost, input_cost, total_cost])
 
-        # Compute violations
+        # Compute violations (already fixed)
         u_violation = np.maximum(0, np.maximum(
             np.abs(u) - mpc.umax, 
             mpc.umin - np.abs(u)
         ))
         
-        # Convert state to reduced form for constraint checking
         x_reduced = np.hstack([
-            x_curr[0:3],           # Position
-            quad.qtorp(x_curr[3:7]), # Convert quaternion to rpy
-            x_curr[7:10],          # Velocity
-            x_curr[10:13]          # Angular velocity
+            x_curr[0:3],
+            quad.qtorp(x_curr[3:7]),
+            x_curr[7:10],
+            x_curr[10:13]
         ])
         x_violation = np.maximum(0, np.maximum(
             np.abs(x_reduced) - mpc.xmax, 
@@ -117,22 +116,6 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, NSIM=100, use_wind=Fal
         
         metrics['violations'].append([np.sum(u_violation), np.sum(x_violation)])
         metrics['iterations'].append(k)
-
-        # Print detailed solve information
-        print(f"\n=== Solve {i+1} Details ===")
-        print(f"Iterations needed: {k}")
-        print("\nAccuracy:")
-        print(f"Position error: {np.linalg.norm(x_curr[0:3] - xg[0:3]):.6f}")
-        print(f"Attitude error: {np.linalg.norm(quad.qtorp(x_curr[3:7])):.6f}")
-        print("\nCosts:")
-        print(f"State cost: {state_cost:.6f}")
-        print(f"Input cost: {input_cost:.6f}")
-        print(f"Total cost: {total_cost:.6f}")
-        print("\nConstraint Violations:")
-        print(f"Input constraints: {np.sum(u_violation):.6f}")
-        print(f"State constraints: {np.sum(x_violation):.6f}")
-        print(f"\nRho value: {mpc.cache['rho']:.6f}")
-        print("=" * 50)
 
         # Simulate with wind if enabled
         if use_wind:
