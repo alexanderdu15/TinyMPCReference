@@ -144,26 +144,20 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         suffix += '_recache'
     suffix += f'_hover'
 
-    # Save ALL metrics (both old and new)
-    # Original metrics
+    # Save metrics to files
     np.savetxt(data_dir / 'iterations' / f"traj{suffix}.txt", iterations)
     if use_rho_adaptation:
         np.savetxt(data_dir / 'rho_history' / f"traj{suffix}.txt", rho_history)
     np.savetxt(data_dir / 'trajectory_costs' / f"traj{suffix}.txt", metrics['trajectory_costs'])
     np.savetxt(data_dir / 'control_efforts' / f"traj{suffix}.txt", metrics['control_efforts'])
-
-    # Additional metrics for comparison
     np.savetxt(data_dir / 'costs' / f"costs{suffix}.txt", metrics['solve_costs'])
     np.savetxt(data_dir / 'violations' / f"violations{suffix}.txt", metrics['violations'])
 
     visualize_trajectory(x_all, u_all, dt=quad.dt)
 
-    # Plot all metrics
-    plot_all_metrics(metrics, iterations, errors, rho_history, 
-                    use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
-        
-    # Plot state and costs separately
-    plot_state_and_costs(metrics, use_rho_adaptation=use_rho_adaptation)
+    # Update how we call plot_all_metrics
+    plot_all_metrics(suffix=suffix, use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
+    plot_state_and_costs(suffix=suffix, use_rho_adaptation=use_rho_adaptation)
 
     print("\nSimulation completed successfully!")
     print(f"Average iterations per step: {np.mean(iterations):.2f}")

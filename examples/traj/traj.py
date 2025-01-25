@@ -189,12 +189,10 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
 
         visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
 
-        # Plot all metrics
-        plot_all_metrics(metrics, iterations, errors, rho_history, 
-                        use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
-        
-        # Plot state and costs separately
-        plot_state_and_costs(metrics, use_rho_adaptation=use_rho_adaptation)
+
+        # Update how we call plot_all_metrics
+        plot_all_metrics(suffix=suffix, use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
+        plot_state_and_costs(suffix=suffix, use_rho_adaptation=use_rho_adaptation)
 
         print("\nSimulation completed successfully!")
         print(f"Average iterations per step: {np.mean(iterations):.2f}")
