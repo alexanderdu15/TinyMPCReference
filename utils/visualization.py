@@ -108,7 +108,6 @@ def plot_costs_comparison(adaptive_costs, fixed_costs):
     plt.plot(adaptive_costs[:, 0], label='Adaptive', alpha=0.8)
     plt.plot(fixed_costs[:, 0], label='Fixed', alpha=0.8)
     plt.xlabel('MPC Step')
-    plt.ylabel('State Cost')
     plt.title('State Costs Comparison')
     plt.legend()
     plt.grid(True)
@@ -118,7 +117,6 @@ def plot_costs_comparison(adaptive_costs, fixed_costs):
     plt.plot(adaptive_costs[:, 1], label='Adaptive', alpha=0.8)
     plt.plot(fixed_costs[:, 1], label='Fixed', alpha=0.8)
     plt.xlabel('MPC Step')
-    plt.ylabel('Input Cost')
     plt.title('Input Costs Comparison')
     plt.legend()
     plt.grid(True)
@@ -191,21 +189,66 @@ def save_metrics(metrics, suffix, data_dir='data'):
     np.savetxt(data_dir / 'violations' / f'violations_{suffix}.txt', metrics['violations'])
     np.savetxt(data_dir / 'iterations' / f'iterations_{suffix}.txt', metrics['iterations'])
 
-def plot_all_metrics(metrics, iterations, errors, rho_history=None, use_rho_adaptation=False, dt=0.02):
-    """Plot all metrics in one figure except state/cost plots"""
+def plot_state_and_costs(suffix, use_rho_adaptation=False, data_dir='../data'):
+    """Plot state and cost metrics from saved files"""
+    data_dir = Path(data_dir)
+    
+    # Load data from files
+    costs = np.loadtxt(data_dir / 'costs' / f'costs{suffix}.txt')
+    violations = np.loadtxt(data_dir / 'violations' / f'violations{suffix}.txt')
+    
+    plt.figure(figsize=(15, 5))
+    
+    # Plot costs
+    plt.subplot(121)
+    plt.plot(costs[:, 0], label='State Cost')
+    plt.plot(costs[:, 1], label='Input Cost')
+    plt.plot(costs[:, 2], label='Total Cost')
+    plt.xlabel('MPC Step')
+    plt.ylabel('Cost')
+    plt.title(f'{"Adaptive" if use_rho_adaptation else "Fixed"} Rho Costs')
+    plt.legend()
+    plt.grid(True)
+    
+    # Plot state violations
+    plt.subplot(122)
+    plt.plot(violations[:, 1], label='State Violation')
+    plt.xlabel('MPC Step')
+    plt.ylabel('State Constraint Violation')
+    plt.title('State Violations')
+    plt.legend()
+    plt.grid(True)
+    
+    plt.tight_layout()
+    plt.show()
+
+def plot_all_metrics(suffix, use_rho_adaptation=False, data_dir='../data', dt=0.02):
+    """Plot all metrics from saved files"""
+    data_dir = Path(data_dir)
+    
+    # Load all data from files
+    iterations = np.loadtxt(data_dir / 'iterations' / f'traj{suffix}.txt')
+    violations = np.loadtxt(data_dir / 'violations' / f'violations{suffix}.txt')
+    trajectory_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj{suffix}.txt')
+    control_efforts = np.loadtxt(data_dir / 'control_efforts' / f'traj{suffix}.txt')
+    
+    if use_rho_adaptation:
+        rho_history = np.loadtxt(data_dir / 'rho_history' / f'traj{suffix}.txt')
+    else:
+        rho_history = None
+    
     plt.figure(figsize=(20, 10))
     
-    # Plot tracking error
+    # Plot tracking error/trajectory costs
     plt.subplot(231)
-    plt.plot(np.arange(len(errors))*dt, errors)
+    plt.plot(np.arange(len(trajectory_costs))*dt, trajectory_costs)
     plt.xlabel('Time [s]')
-    plt.ylabel('L2 Position Error [m]')
-    plt.title('Tracking Error over Time')
+    plt.ylabel('Trajectory Cost')
+    plt.title('Tracking Cost over Time')
     plt.grid(True)
     
     # Plot violations
     plt.subplot(232)
-    violations = np.array(metrics['violations'])
     plt.plot(violations[:, 0], label='Input Violation')
     plt.plot(violations[:, 1], label='State Violation')
     plt.xlabel('MPC Step')
@@ -222,22 +265,6 @@ def plot_all_metrics(metrics, iterations, errors, rho_history=None, use_rho_adap
     plt.title('ADMM Iterations')
     plt.grid(True)
     
-    # Plot trajectory costs
-    plt.subplot(234)
-    plt.plot(metrics['trajectory_costs'], label='Trajectory Cost')
-    plt.xlabel('MPC Step')
-    plt.ylabel('Cost')
-    plt.title('Trajectory Costs')
-    plt.grid(True)
-    
-    # Plot control efforts
-    plt.subplot(235)
-    plt.plot(metrics['control_efforts'], label='Control Effort')
-    plt.xlabel('MPC Step')
-    plt.ylabel('Effort')
-    plt.title('Control Efforts')
-    plt.grid(True)
-    
     # Plot rho history if adaptive
     plt.subplot(236)
     if use_rho_adaptation and rho_history is not None:
@@ -249,8 +276,8 @@ def plot_all_metrics(metrics, iterations, errors, rho_history=None, use_rho_adap
         plt.text(0.5, 0.5, 'Statistics:\n' + 
                 f"Avg iterations: {np.mean(iterations):.2f}\n" +
                 f"Total iterations: {sum(iterations)}\n" +
-                f"Avg traj cost: {np.mean(metrics['trajectory_costs']):.4f}\n" +
-                f"Avg control effort: {np.mean(metrics['control_efforts']):.4f}",
+                f"Avg traj cost: {np.mean(trajectory_costs):.4f}\n" +
+                f"Avg control effort: {np.mean(control_efforts):.4f}",
                 horizontalalignment='center',
                 verticalalignment='center',
                 transform=plt.gca().transAxes)
@@ -260,72 +287,35 @@ def plot_all_metrics(metrics, iterations, errors, rho_history=None, use_rho_adap
     plt.tight_layout()
     plt.show()
 
-def plot_state_and_costs(metrics, use_rho_adaptation=False):
-    """Plot state and cost metrics separately"""
-    plt.figure(figsize=(15, 5))
-    
-    # Plot costs
-    plt.subplot(121)
-    costs = np.array(metrics['solve_costs'])
-    plt.plot(costs[:, 0], label='State Cost')
-    plt.plot(costs[:, 1], label='Input Cost')
-    plt.plot(costs[:, 2], label='Total Cost')
-    plt.xlabel('MPC Step')
-    plt.ylabel('Cost')
-    plt.title(f'{"Adaptive" if use_rho_adaptation else "Fixed"} Rho Costs')
-    plt.legend()
-    plt.grid(True)
-    
-    # Plot state violations
-    plt.subplot(122)
-    violations = np.array(metrics['violations'])
-    plt.plot(violations[:, 1], label='State Violation')
-    plt.xlabel('MPC Step')
-    plt.ylabel('State Constraint Violation')
-    plt.title('State Violations')
-    plt.legend()
-    plt.grid(True)
-    
-    plt.tight_layout()
-    plt.show()
-
 def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'):
-    """
-    Load saved data and create comparison plots
-    compare_type: 'normal' (adaptive vs fixed) or 'wind' (adaptive+wind vs fixed+wind)
-    """
+    """Load saved data and create comparison plots"""
     try:
         data_dir = Path(data_dir)
         print("\nLoading metrics for comparison...")
         
+        # Build suffixes exactly as used in hover.py/traj.py
         if compare_type == 'wind':
-            # Load adaptive with wind data
-            adaptive_costs = np.loadtxt(data_dir / 'costs' / f'costs_adaptive_wind_{traj_type}.txt')
-            adaptive_violations = np.loadtxt(data_dir / 'violations' / f'violations_adaptive_wind_{traj_type}.txt')
-            adaptive_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_adaptive_wind_{traj_type}.txt')
-            adaptive_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_adaptive_wind_{traj_type}.txt')
-            
-            # Load fixed with wind data
-            fixed_costs = np.loadtxt(data_dir / 'costs' / f'costs_normal_wind_{traj_type}.txt')
-            fixed_violations = np.loadtxt(data_dir / 'violations' / f'violations_normal_wind_{traj_type}.txt')
-            fixed_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_normal_wind_{traj_type}.txt')
-            fixed_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_normal_wind_{traj_type}.txt')
-            
+            adaptive_suffix = f'_adaptive_wind_{traj_type}'
+            fixed_suffix = f'_normal_wind_{traj_type}'
             title_suffix = 'with Wind'
-        else:  # normal comparison (adaptive vs fixed, no wind)
-            # Load adaptive data (no wind)
-            adaptive_costs = np.loadtxt(data_dir / 'costs' / f'costs_adaptive_{traj_type}.txt')
-            adaptive_violations = np.loadtxt(data_dir / 'violations' / f'violations_adaptive_{traj_type}.txt')
-            adaptive_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_adaptive_{traj_type}.txt')
-            adaptive_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_adaptive_{traj_type}.txt')
+        else:
+            adaptive_suffix = f'_adaptive_{traj_type}'
+            fixed_suffix = f'_normal_{traj_type}'
+            title_suffix = ''
             
-            # Load fixed data (no wind)
-            fixed_costs = np.loadtxt(data_dir / 'costs' / f'costs_normal_{traj_type}.txt')
-            fixed_violations = np.loadtxt(data_dir / 'violations' / f'violations_normal_{traj_type}.txt')
-            fixed_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f'traj_normal_{traj_type}.txt')
-            fixed_control = np.loadtxt(data_dir / 'control_efforts' / f'traj_normal_{traj_type}.txt')
-            
-            title_suffix = 'no Wind'
+        # Load data using exact same paths as hover.py/traj.py
+        adaptive_costs = np.loadtxt(data_dir / 'costs' / f"costs{adaptive_suffix}.txt")
+        adaptive_violations = np.loadtxt(data_dir / 'violations' / f"violations{adaptive_suffix}.txt")
+        adaptive_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f"traj{adaptive_suffix}.txt")
+        adaptive_control = np.loadtxt(data_dir / 'control_efforts' / f"traj{adaptive_suffix}.txt")
+        adaptive_iterations = np.loadtxt(data_dir / 'iterations' / f"traj{adaptive_suffix}.txt")
+        
+        # Load fixed data
+        fixed_costs = np.loadtxt(data_dir / 'costs' / f"costs{fixed_suffix}.txt")
+        fixed_violations = np.loadtxt(data_dir / 'violations' / f"violations{fixed_suffix}.txt")
+        fixed_traj_costs = np.loadtxt(data_dir / 'trajectory_costs' / f"traj{fixed_suffix}.txt")
+        fixed_control = np.loadtxt(data_dir / 'control_efforts' / f"traj{fixed_suffix}.txt")
+        fixed_iterations = np.loadtxt(data_dir / 'iterations' / f"traj{fixed_suffix}.txt")
         
         # Create figure with extra space on right for stats
         plt.figure(figsize=(22, 10))  # Made figure wider to accommodate stats
@@ -335,8 +325,9 @@ def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'
         plt.plot(fixed_costs[:, 0], 'b-o', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
         plt.plot(adaptive_costs[:, 0], 'r-^', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
-        plt.ylabel('State Cost')
-        plt.title(f'State Costs Comparison ({title_suffix})')
+        
+        #plt.title(f'State Costs Comparison ({title_suffix})')
+        plt.title('State Costs Comparison')
         plt.legend()
         plt.grid(True)
         
@@ -345,7 +336,7 @@ def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'
         plt.plot(fixed_costs[:, 1], 'b-s', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
         plt.plot(adaptive_costs[:, 1], 'r-d', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
-        plt.ylabel('Input Cost')
+        
         plt.title('Input Costs Comparison')
         plt.legend()
         plt.grid(True)
@@ -355,7 +346,7 @@ def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'
         plt.plot(fixed_violations[:, 0], 'b-*', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
         plt.plot(adaptive_violations[:, 0], 'r-p', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
-        plt.ylabel('Input Constraint Violation')
+        
         plt.title('Input Violations')
         plt.legend()
         plt.grid(True)
@@ -365,32 +356,22 @@ def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'
         plt.plot(fixed_violations[:, 1], 'b-*', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
         plt.plot(adaptive_violations[:, 1], 'r-p', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
-        plt.ylabel('State Constraint Violation')
+        
         plt.title('State Violations (×10⁻³)')
         plt.legend()
         plt.grid(True)
-        
-        # Control Efforts
+
+        #Iterations
         plt.subplot(235)
-        plt.plot(fixed_control, 'b-x', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
-        plt.plot(adaptive_control, 'r-+', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
+        plt.plot(fixed_iterations, 'b-*', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
+        plt.plot(adaptive_iterations, 'r-p', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
         plt.xlabel('MPC Step')
-        plt.ylabel('Control Effort')
-        plt.title('Control Efforts')
+        
+        plt.title('Iterations')
         plt.legend()
         plt.grid(True)
         
-        
-        
-        # Trajectory Costs
-        plt.subplot(236)
-        plt.plot(fixed_traj_costs, 'b-v', label='Fixed', alpha=0.5, linewidth=2, markersize=4, markevery=20)
-        plt.plot(adaptive_traj_costs, 'r-^', label='Adaptive', alpha=0.8, linewidth=2.5, markersize=6, markevery=20)
-        plt.xlabel('MPC Step')
-        plt.ylabel('Trajectory Cost')
-        plt.title('Trajectory Costs')
-        plt.legend()
-        plt.grid(True)
+
         
         # Add statistics box to the right of plots
         stats_text = (
@@ -413,9 +394,10 @@ def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'
             f'Total Violation:\n'
             f'  Fixed: {np.mean(fixed_violations[:, 0] + fixed_violations[:, 1]):.3f}\n'
             f'  Adaptive: {np.mean(adaptive_violations[:, 0] + adaptive_violations[:, 1]):.3f}\n\n'
-            f'Trajectory Cost:\n'
-            f'  Fixed: {np.mean(fixed_traj_costs):.3f}\n'
-            f'  Adaptive: {np.mean(adaptive_traj_costs):.3f}'
+            f'Total Iterations:\n'
+            f'  Fixed: {np.sum(fixed_iterations)}\n'
+            f'  Adaptive: {np.sum(adaptive_iterations)}\n\n'
+
         )
         # Place stats box to the right of plots
         plt.figtext(0.92, 0.5, stats_text, 
