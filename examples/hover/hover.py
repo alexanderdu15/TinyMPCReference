@@ -99,10 +99,6 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
         recache=use_recaching,
         mode='hover'
     )
-
-    if use_rho_adaptation:
-        mpc.rho_adapter.initialize_derivatives(mpc.cache)
-
     # Set bounds
     u_max = [1.0-ug[0]] * quad.nu
     u_min = [-ug[0]] * quad.nu
