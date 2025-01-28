@@ -25,7 +25,28 @@ def compute_tracking_error(x_all, trajectory, dt):
     
     return np.mean(errors), np.max(errors), errors
 
-def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_type='full'):
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--adapt', action='store_true', 
+                        help='Enable rho adaptation')
+    parser.add_argument('--recache', action='store_true', 
+                        help='Enable cache recomputation')
+    parser.add_argument('--wind', action='store_true', 
+                        help='Enable wind disturbance')
+    parser.add_argument('--plot-comparison', action='store_true',
+                        help='Plot comparison between adaptive and fixed runs')
+    parser.add_argument('--plot-comparison-wind', action='store_true',
+                        help='Plot comparison between wind and no-wind cases')
+    # Add trajectory type arguments
+    parser.add_argument('--straight', action='store_true',
+                        help='Use straight line trajectory')
+    parser.add_argument('--curve', action='store_true',
+                        help='Use curved trajectory')
+    parser.add_argument('--heuristic', action='store_true',
+                        help='Use heuristic rho adaptation')
+    return parser.parse_args()
+
+def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_type='full', use_heuristic=False):
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -77,7 +98,12 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
     
     if use_rho_adaptation:
         print(f"Using warm-started rho: {initial_rho}")
-        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=1.0, rho_max=200.0)
+        rho_adapter = RhoAdapter(
+            rho_base=initial_rho, 
+            rho_min=1.0, 
+            rho_max=200.0,
+            method="heuristic" if use_heuristic else "analytical"
+        )
     else:
         rho_adapter = None
 
@@ -212,24 +238,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--adapt', action='store_true', 
-                        help='Enable rho adaptation')
-    parser.add_argument('--recache', action='store_true', 
-                        help='Enable cache recomputation')
-    parser.add_argument('--wind', action='store_true', 
-                        help='Enable wind disturbance')
-    parser.add_argument('--plot-comparison', action='store_true',
-                        help='Plot comparison between adaptive and fixed runs')
-    parser.add_argument('--plot-comparison-wind', action='store_true',
-                        help='Plot comparison between wind and no-wind cases')
-    # Add trajectory type arguments
-    parser.add_argument('--straight', action='store_true',
-                        help='Use straight line trajectory')
-    parser.add_argument('--curve', action='store_true',
-                        help='Use curved trajectory')
-    
-    args = parser.parse_args()
+    args = parse_args()
     
     # Determine trajectory type
     if args.straight:
@@ -246,4 +255,5 @@ if __name__ == "__main__":
         main(use_rho_adaptation=args.adapt,
              use_recaching=args.recache,
              use_wind=args.wind,
-             traj_type=traj_type)
+             traj_type=traj_type,
+             use_heuristic=args.heuristic)
