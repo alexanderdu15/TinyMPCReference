@@ -10,6 +10,7 @@ from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_
 from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 import matplotlib.pyplot as plt
+import argparse
 
 def compute_hover_error(x_all, xg):
     """Compute L2 tracking error over the hover trajectory"""
@@ -19,7 +20,25 @@ def compute_hover_error(x_all, xg):
         errors.append(pos_error)
     return np.mean(errors), np.max(errors), errors
 
-def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
+def parse_args():
+    parser = argparse.ArgumentParser(description='Hover control using TinyMPC')
+    parser.add_argument('--adapt', action='store_true', 
+                        help='Enable rho adaptation')
+    parser.add_argument('--recache', action='store_true', 
+                        help='Enable cache recomputation')
+    parser.add_argument('--wind', action='store_true', 
+                        help='Enable wind disturbance')
+    parser.add_argument('--heuristic', action='store_true',
+                        help='Use heuristic rho adaptation')
+    parser.add_argument('--plot-comparison', action='store_true',
+                        help='Plot comparison between adaptive and fixed runs')
+
+    parser.add_argument('--plot-comparison-wind', action='store_true',
+                        help='Plot comparison between wind and no-wind cases')
+    
+    return parser.parse_args()
+
+def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heuristic=False):
     """Main function for hover example"""
     print("\nStarting hover simulation with:")
     print(f"- Rho adaptation: {'enabled' if use_rho_adaptation else 'disabled'}")
@@ -59,7 +78,12 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
     
     if use_rho_adaptation:
         print(f"Using warm-started rho: {initial_rho}")
-        rho_adapter = RhoAdapter(rho_base=initial_rho, rho_min=60.0, rho_max=100.0)
+        rho_adapter = RhoAdapter(
+            rho_base=initial_rho, 
+            rho_min=60.0, 
+            rho_max=100.0,
+            method="heuristic" if use_heuristic else "analytical"
+        )
     else:
         rho_adapter = None
     
@@ -73,8 +97,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
         rho=initial_rho,
         rho_adapter=rho_adapter,
         recache=use_recaching,
-        mode = 'hover'
-
+        mode='hover'
     )
 
     if use_rho_adaptation:
@@ -172,21 +195,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False):
 
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--adapt', action='store_true', 
-                        help='Enable rho adaptation')
-    parser.add_argument('--recache', action='store_true', 
-                        help='Enable cache recomputation')
-    parser.add_argument('--wind', action='store_true', 
-                        help='Enable wind disturbance')
-    parser.add_argument('--plot-comparison', action='store_true',
-                        help='Plot comparison between adaptive and fixed runs')
-
-    parser.add_argument('--plot-comparison-wind', action='store_true',
-                        help='Plot comparison between wind and no-wind cases')
-    
-    args = parser.parse_args()
+    args = parse_args()
     
     if args.plot_comparison or args.plot_comparison_wind:
         plot_comparisons(traj_type='hover', 
@@ -194,6 +203,7 @@ if __name__ == "__main__":
     else:
         main(use_rho_adaptation=args.adapt,
              use_recaching=args.recache,
-             use_wind=args.wind)
+             use_wind=args.wind,
+             use_heuristic=args.heuristic)
 
        

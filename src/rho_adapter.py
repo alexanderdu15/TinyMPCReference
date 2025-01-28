@@ -5,11 +5,12 @@ from utils.hover_simulation import uhover, xg
 from autograd import jacobian
 
 class RhoAdapter:
-    def __init__(self, rho_base=85.0, rho_min=70.0, rho_max=100.0, tolerance=1.1):
+    def __init__(self, rho_base=85.0, rho_min=70.0, rho_max=100.0, tolerance=1.1, method="analytical"):
         self.rho_base = rho_base
         self.rho_min = rho_min
         self.rho_max = rho_max
         self.tolerance = tolerance
+        self.method = method  # "analytical" or "heuristic"
         self.rho_history = []
         self.residual_history = []
         self.derivatives = None
@@ -51,21 +52,17 @@ class RhoAdapter:
         cache['dC1_drho'] = derivs[k_size+p_size:k_size+p_size+c1_size].reshape(m, m)
         cache['dC2_drho'] = derivs[k_size+p_size+c1_size:].reshape(n, n)
 
-
-
     def format_matrices(self, x_prev, u_prev, v_prev, z_prev, g_prev, y_prev, cache, N):
         """Format matrices into the form needed for residual computation"""
         nx = x_prev.shape[0]  # Should be 12
         nu = u_prev.shape[0]  # Should be 4
         
         # Reshape inputs to ensure correct dimensions
-        x_prev = x_prev.reshape(nx, -1)  # Make sure it's 2D
+        x_prev = x_prev.reshape(nx, -1)  
         u_prev = u_prev.reshape(nu, -1)
         v_prev = v_prev.reshape(nx, -1)
         z_prev = z_prev.reshape(nu, -1)
 
-
-        
         # 1. Form decision variable x (should be Nx*N + Nu*(N-1))
         x_decision = []
         for i in range(N):
@@ -141,9 +138,6 @@ class RhoAdapter:
 
         return x, A, z, y, P, q
 
-
-       
-
     def compute_residuals(self, x, A, z, y, P, q):
         """Compute ADMM residuals"""
         # Primal residual        
@@ -153,18 +147,10 @@ class RhoAdapter:
         pri_norm = max(np.linalg.norm(Ax, ord=np.inf), 
                       np.linalg.norm(z, ord=np.inf))
 
-
-        # print(f"Ax: {Ax}")
-        # print(f"z: {z}")
-        # print(f"Primal residual: {pri_res:.2e}")
-        # print(f"Primal norm: {pri_norm:.2e}")
-
         # Dual residual
         r_dual = P @ x + q + A.T @ y
         dual_res = np.linalg.norm(r_dual, ord=np.inf)
 
-    
-        
         # Normalization terms
         Px = P @ x
         ATy = A.T @ y
@@ -177,14 +163,29 @@ class RhoAdapter:
     def predict_rho(self, pri_res, dual_res, pri_norm, dual_norm, current_rho):
         """Predict new rho value based on residuals"""
 
-        normalized_pri = pri_res / (pri_norm + 1e-10)
-        normalized_dual = dual_res / (dual_norm + 1e-10)
 
-        ratio = normalized_pri / (normalized_dual + 1e-10)
-        
-        rho_new = current_rho * np.sqrt(ratio)
-        #rho_new = current_rho * (np.sqrt(ratio) if ratio > 1 else ratio)
-        rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
+        if self.method == "heuristic":
+            # Simple heuristic based on ratio
+            ratio = pri_res / (dual_res + 1e-8)
+            print(f"Pri Res: {pri_res}")
+            
+            if ratio > 2.0:  # Primal residual much larger
+                rho_new = min(current_rho * 1.1, self.rho_max)
+            elif ratio < 3.0:  # Dual residual much larger
+                rho_new = max(current_rho * 0.9, self.rho_min)
+            else:
+                rho_new = current_rho
+
+        else:
+
+            normalized_pri = pri_res / (pri_norm + 1e-10)
+            normalized_dual = dual_res / (dual_norm + 1e-10)
+
+            ratio = normalized_pri / (normalized_dual + 1e-10)
+            
+            rho_new = current_rho * np.sqrt(ratio)
+            #rho_new = current_rho * (np.sqrt(ratio) if ratio > 1 else ratio)
+            rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
 
         self.rho_history.append(rho_new)
         return rho_new
