@@ -6,7 +6,7 @@ import numpy as np
 from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
 from src.rho_adapter import RhoAdapter
-from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_all_metrics, plot_state_and_costs, save_metrics, plot_comparisons
+from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_all_metrics, plot_state_and_costs, save_metrics, plot_comparisons, plot_hover_iterations_comparison
 from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 import matplotlib.pyplot as plt
@@ -35,6 +35,9 @@ def parse_args():
 
     parser.add_argument('--plot-comparison-wind', action='store_true',
                         help='Plot comparison between wind and no-wind cases')
+    
+    parser.add_argument('--plot-iterations-comparison', action='store_true',
+                        help='Plot comparison of iterations between methods')
     
     return parser.parse_args()
 
@@ -189,6 +192,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
         main.last_rho = rho_history[-1]
         print(f"Saved rho {main.last_rho} for next run")
 
+    if args.plot_iterations_comparison:
+        plot_hover_iterations_comparison()
 
 if __name__ == "__main__":
     args = parse_args()
