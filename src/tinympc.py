@@ -186,8 +186,14 @@ class TinyMPC:
         new_rho = self.rho_adapter.predict_rho(
             pri_res, dual_res, pri_norm, dual_norm, self.cache['rho']
         )
-        updates = self.rho_adapter.update_matrices(self.cache, new_rho)
-        self.cache.update(updates)
+
+        if self.recache:
+            self.cache['rho'] = new_rho
+            self.compute_cache_terms()
+
+        else:
+            updates = self.rho_adapter.update_matrices(self.cache, new_rho)
+            self.cache.update(updates)
 
         
         
@@ -262,10 +268,6 @@ class TinyMPC:
             self.update_rho()
 
        
-
-        if self.recache:
-            print("Recaching cache terms")
-            self.compute_cache_terms()
 
 
         return x, u, status, k
