@@ -2,77 +2,92 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-def visualize_trajectory(x_all, u_all, xg=None, ug=None, trajectory=None, dt=0.02):
-    """
-    Plot state and input trajectories 
-    """
+def visualize_trajectory(x_all, u_all, trajectory=None, dt=0.02):
+    """Visualize trajectory with early stopping and clearer plotting"""
     x_all = np.array(x_all)
     u_all = np.array(u_all)
-    nsteps = len(x_all)
-    t = np.arange(nsteps) * dt
+    t = np.arange(len(x_all)) * dt
+    t_full = np.arange(200) * dt  # Full trajectory time
 
-    # Get reference trajectory once if it exists
+    # Find divergence point (position error > 5m or NaN)
+    divergence_idx = None
     if trajectory is not None:
-        x_ref = trajectory.get_trajectory_points(t)
+        for i, x in enumerate(x_all):
+            x_ref = trajectory.generate_reference(t[i])[0:3]
+            pos_error = np.linalg.norm(x[0:3] - x_ref)
+            if pos_error > 5.0 or np.any(np.isnan(x)):
+                divergence_idx = i
+                print(f"\nController diverged at t = {t[i]:.2f} seconds")
+                print(f"Position error: {pos_error:.2f} meters")
+                break
+    
+    # Trim data if divergence detected
+    if divergence_idx is not None:
+        x_all = x_all[:divergence_idx]
+        u_all = u_all[:divergence_idx]
+        t = t[:divergence_idx]
 
-    fig = plt.figure(figsize=(15, 12))
+    # Create time series plots
+    fig1, axes = plt.subplots(3, 1, figsize=(12, 10), dpi=100)
     
-    # 2D trajectory plot
-    ax0 = fig.add_subplot(221)
-    ax0.plot(x_all[:, 0], x_all[:, 2], 'b-', label='Actual', linewidth=2)
-    
+    # Position plot with full reference trajectory
+    axes[0].plot(t, x_all[:, 0], 'r-', label='x', linewidth=2)
+    axes[0].plot(t, x_all[:, 1], 'g-', label='y', linewidth=2)
+    axes[0].plot(t, x_all[:, 2], 'b-', label='z', linewidth=2)
     if trajectory is not None:
-        ax0.plot(x_ref[:, 0], x_ref[:, 2], 'r--', label='Reference', linewidth=2)
-    
-    ax0.set_xlabel('X [m]')
-    ax0.set_ylabel('Z [m]')
-    ax0.legend()
-    ax0.grid(True)
-    ax0.set_title("2D Trajectory")
-    
-    # Position plot
-    ax1 = fig.add_subplot(222)
-    ax1.plot(t, x_all[:, 0], 'b-', label="x", linewidth=2)
-    ax1.plot(t, x_all[:, 1], 'g-', label="y", linewidth=2)
-    ax1.plot(t, x_all[:, 2], 'r-', label="z", linewidth=2)
-    
-    if trajectory is not None:
-        # Use same reference trajectory data
-        ax1.plot(t, x_ref[:, 0], 'b--', label="x_ref")
-        ax1.plot(t, x_ref[:, 2], 'r--', label="z_ref")
-    elif xg is not None:
-        ax1.plot(t, [xg[0]]*nsteps, 'b--', label="x_goal")
-        ax1.plot(t, [xg[1]]*nsteps, 'g--', label="y_goal")
-        ax1.plot(t, [xg[2]]*nsteps, 'r--', label="z_goal")
-    
-    ax1.set_ylabel('Position [m]')
-    ax1.legend()
-    ax1.grid(True)
-    ax1.set_title("Position Trajectories")
+        # Plot full reference trajectory
+        x_ref_full = np.array([trajectory.generate_reference(ti)[0:3] for ti in t_full])
+        axes[0].plot(t_full, x_ref_full[:, 0], 'r--', label='x ref', linewidth=2)
+        axes[0].plot(t_full, x_ref_full[:, 1], 'g--', label='y ref', linewidth=2)
+        axes[0].plot(t_full, x_ref_full[:, 2], 'b--', label='z ref', linewidth=2)
+    axes[0].set_ylabel('Position (m)', fontsize=12)
+    axes[0].legend(fontsize=10)
+    axes[0].grid(True)
+    axes[0].tick_params(labelsize=10)
 
     # Attitude plot
-    ax2 = fig.add_subplot(223)
-    ax2.plot(t, x_all[:, 3:7], linewidth=2)
-    if xg is not None:
-        ax2.plot(t, [xg[3]]*nsteps, 'r--')
-    ax2.set_ylabel('Quaternion')
-    ax2.legend(['q0', 'q1', 'q2', 'q3'])
-    ax2.grid(True)
-    ax2.set_title("Attitude Trajectories")
+    axes[1].plot(t, x_all[:, 3], 'r-', label='qw', linewidth=2)
+    axes[1].plot(t, x_all[:, 4], 'g-', label='qx', linewidth=2)
+    axes[1].plot(t, x_all[:, 5], 'b-', label='qy', linewidth=2)
+    axes[1].plot(t, x_all[:, 6], 'k-', label='qz', linewidth=2)
+    axes[1].set_ylabel('Attitude (quat)', fontsize=12)
+    axes[1].legend(fontsize=10)
+    axes[1].grid(True)
+    axes[1].tick_params(labelsize=10)
 
-    # Control inputs plot
-    ax3 = fig.add_subplot(224)
-    ax3.plot(t, u_all, linewidth=2)
-    if ug is not None:
-        ax3.plot(t, [ug[0]]*nsteps, 'k--', label="hover_thrust")
-    ax3.set_xlabel('Time [s]')
-    ax3.set_ylabel('Motor commands')
-    ax3.legend(['u1', 'u2', 'u3', 'u4'])
-    ax3.grid(True)
-    ax3.set_title("Control Inputs")
+    # Control plot
+    t_control = t[:len(u_all)]  # Adjust time vector for control inputs
+    axes[2].plot(t_control, u_all[:, 0], 'r-', label='u1', linewidth=2)
+    axes[2].plot(t_control, u_all[:, 1], 'g-', label='u2', linewidth=2)
+    axes[2].plot(t_control, u_all[:, 2], 'b-', label='u3', linewidth=2)
+    axes[2].plot(t_control, u_all[:, 3], 'k-', label='u4', linewidth=2)
+    axes[2].set_ylabel('Control', fontsize=12)
+    axes[2].set_xlabel('Time (s)', fontsize=12)
+    axes[2].legend(fontsize=10)
+    axes[2].grid(True)
+    axes[2].tick_params(labelsize=10)
 
     plt.tight_layout()
+
+    # Create 2D trajectory plot (X-Z plane)
+    fig2, ax = plt.subplots(figsize=(10, 8), dpi=200)
+    
+    # Plot actual trajectory
+    ax.plot(x_all[:, 0], x_all[:, 2], 'b-', label='Actual', linewidth=2)
+    
+    # Plot reference trajectory if available
+    if trajectory is not None:
+        t_full = np.linspace(0, 4, 1000)  # Smooth reference trajectory
+        x_ref_full = np.array([trajectory.generate_reference(ti)[0:3] for ti in t_full])
+        ax.plot(x_ref_full[:, 0], x_ref_full[:, 2], 'r--', linewidth=2)
+    
+    ax.set_xticklabels([])  # Remove x ticks
+    ax.set_yticklabels([])  # Remove y ticks
+    ax.set_aspect('equal')  # Keep square aspect ratio
+    
+    plt.tight_layout()
     plt.show()
+
 
 def plot_iterations(iterations):
     """Plot ADMM iterations"""
@@ -413,3 +428,29 @@ def plot_comparisons(data_dir='../data', traj_type='full', compare_type='normal'
     except FileNotFoundError as e:
         print("\nError: Make sure you've run both cases before comparison")
         print(f"Missing file: {e}")
+
+def plot_hover_iterations_comparison():
+    """Compare iterations between different hover control approaches"""
+    data_dir = Path('../data/iterations')
+    
+    # Load the data
+    normal = np.loadtxt(data_dir / 'traj_normal_hover.txt')
+    adaptive = np.loadtxt(data_dir / 'traj_adaptive_hover.txt')
+    recompute = np.loadtxt(data_dir / 'traj_adaptive_recache_hover.txt')
+    
+    # Create plot
+    plt.figure(figsize=(10, 6), dpi=100)
+    t = np.arange(len(normal)) * 0.02  # assuming dt = 0.02
+    
+    plt.plot(t, normal, 'b-', label='Fixed ρ', linewidth=2)
+    plt.plot(t, adaptive, 'r-', label='Adaptive ρ', linewidth=2)
+    plt.plot(t, recompute, 'g-', label='Adaptive ρ (recompute)', linewidth=2)
+    
+    plt.xlabel('Time (s)', fontsize=12)
+    plt.ylabel('Iterations', fontsize=12)
+    plt.grid(True)
+    plt.legend(fontsize=10)
+    plt.title('ADMM Iterations Comparison for Hover Control', fontsize=14)
+    
+    plt.tight_layout()
+    plt.show()
