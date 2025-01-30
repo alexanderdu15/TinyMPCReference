@@ -39,10 +39,14 @@ class QuadrotorDynamics:
         # Add wind effects directly in dynamics
         k_drag = 0.1
         wind_body = Q.T @ wind
-        v_rel = wind_body - v
-        F_drag = -k_drag * np.sign(v_rel) * v_rel**2
-        a_wind = F_drag / self.mass
 
+        if np.all(wind == 0): 
+            a_wind = np.zeros(3)
+        else:
+            v_rel = wind_body - v
+            F_drag = -k_drag * np.sign(v_rel) * v_rel**2
+            a_wind = F_drag / self.mass
+            
         dv = np.array([0, 0, -self.g]) + (1/self.mass) * Q @ np.array([[0, 0, 0, 0], 
                                                                        [0, 0, 0, 0], 
                                                                        [self.kt, self.kt, self.kt, self.kt]]) @ u + a_wind
