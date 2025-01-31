@@ -11,7 +11,7 @@ class RhoAdapter:
         self.rho_max = rho_max
         self.tolerance = tolerance
         self.method = method  # "analytical" or "heuristic"
-        self.rho_history = []
+        self.rho_history = [rho_base]
         self.residual_history = []
         self.derivatives = None
 
@@ -167,15 +167,22 @@ class RhoAdapter:
         if self.method == "heuristic":
             # Simple heuristic based on ratio
             ratio = pri_res / (dual_res + 1e-8)
-            print(f"Pri Res: {pri_res}")
             
-            if ratio > 2.0:  # Primal residual much larger
-                rho_new = min(current_rho * 1.1, self.rho_max)
+            
+            # if ratio > 2.0:  # Primal residual much larger
+            #     rho_new = min(current_rho * 1.1, self.rho_max)
+            # elif ratio < 3.0:  # Dual residual much larger
+            #     rho_new = max(current_rho * 0.9, self.rho_min)
+            # else:
+            #     rho_new = current_rho
+
+            if ratio > 3.0:  # Primal residual much larger
+                rho_new = current_rho * 1.1
             elif ratio < 3.0:  # Dual residual much larger
-                rho_new = max(current_rho * 0.9, self.rho_min)
+                rho_new = current_rho * 0.9
             else:
                 rho_new = current_rho
-
+            
         else:
 
             normalized_pri = pri_res / (pri_norm + 1e-10)
@@ -184,9 +191,8 @@ class RhoAdapter:
             ratio = normalized_pri / (normalized_dual + 1e-10)
             
             rho_new = current_rho * np.sqrt(ratio)
-            #rho_new = current_rho * (np.sqrt(ratio) if ratio > 1 else ratio)
-            rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
-
+            
+        #rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
         self.rho_history.append(rho_new)
         return rho_new
 
