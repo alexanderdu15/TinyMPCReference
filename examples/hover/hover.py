@@ -6,7 +6,7 @@ import numpy as np
 from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
 from src.rho_adapter import RhoAdapter
-from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_all_metrics, plot_state_and_costs, save_metrics, plot_comparisons, plot_hover_iterations_comparison
+from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_all_metrics, plot_state_and_costs, save_metrics, plot_comparisons, plot_hover_iterations_comparison, plot_paper_hover_iterations
 from utils.hover_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 import matplotlib.pyplot as plt
@@ -38,6 +38,9 @@ def parse_args():
     
     parser.add_argument('--plot-iterations-comparison', action='store_true',
                         help='Plot comparison of iterations between methods')
+    
+    parser.add_argument('--plot-paper', action='store_true',
+                        help='Generate paper-ready hover iterations plot')
     
     return parser.parse_args()
 
@@ -160,6 +163,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
     suffix = '_normal'
     if use_rho_adaptation:
         suffix = '_adaptive'
+        if use_heuristic:
+            suffix += '_heuristic'
     if use_wind:
         suffix += '_wind'
     if use_recaching:
@@ -198,7 +203,10 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
 if __name__ == "__main__":
     args = parse_args()
     
-    if args.plot_comparison or args.plot_comparison_wind:
+    if args.plot_paper:
+        from utils.visualization import plot_paper_figures
+        plot_paper_figures()
+    elif args.plot_comparison or args.plot_comparison_wind:
         plot_comparisons(traj_type='hover', 
                         compare_type='wind' if args.plot_comparison_wind else 'normal')
     else:
