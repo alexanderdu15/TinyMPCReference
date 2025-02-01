@@ -195,6 +195,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
         suffix = '_normal'
         if use_rho_adaptation:
             suffix = '_adaptive'
+            if use_heuristic:
+                suffix += '_heuristic'
         if use_wind:
             suffix += '_wind'
         if use_recaching:
