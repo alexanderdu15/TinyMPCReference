@@ -5,7 +5,7 @@ from utils.hover_simulation import uhover, xg
 from autograd import jacobian
 
 class RhoAdapter:
-    def __init__(self, rho_base=85.0, rho_min=70.0, rho_max=100.0, tolerance=1.1, method="analytical"):
+    def __init__(self, rho_base=85.0, rho_min=70.0, rho_max=100.0, tolerance=1.1, method="analytical", clip = False):
         self.rho_base = rho_base
         self.rho_min = rho_min
         self.rho_max = rho_max
@@ -14,6 +14,7 @@ class RhoAdapter:
         self.rho_history = [rho_base]
         self.residual_history = []
         self.derivatives = None
+        self.clip = clip
 
     def initialize_derivatives(self, cache, eps=1e-4):
         """Initialize derivatives using autodiff"""
@@ -24,7 +25,7 @@ class RhoAdapter:
             A, B = cache['A'], cache['B']
             Q = cache['Q']
             
-            # Compute P
+            # Compute Pgit ad
             P = Q
             for _ in range(10):
                 K = np.linalg.inv(R_rho + B.T @ P @ B) @ B.T @ P @ A
@@ -168,14 +169,6 @@ class RhoAdapter:
             # Simple heuristic based on ratio
             ratio = pri_res / (dual_res + 1e-8)
             
-            
-            # if ratio > 2.0:  # Primal residual much larger
-            #     rho_new = min(current_rho * 1.1, self.rho_max)
-            # elif ratio < 3.0:  # Dual residual much larger
-            #     rho_new = max(current_rho * 0.9, self.rho_min)
-            # else:
-            #     rho_new = current_rho
-
             if ratio > 3.0:  # Primal residual much larger
                 rho_new = current_rho * 1.1
             elif ratio < 3.0:  # Dual residual much larger
@@ -192,7 +185,10 @@ class RhoAdapter:
             
             rho_new = current_rho * np.sqrt(ratio)
             
-        #rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
+        #clipping only when running traj.py
+        if self.clip:
+            rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
+
         self.rho_history.append(rho_new)
         return rho_new
 
