@@ -28,7 +28,7 @@ def delta_x_quat(x_curr, x_ref=None):
     else:
         # Trajectory following case
         pos_ref = x_ref[0:3]
-        vel_ref = x_ref[6:9]  # Note: Make sure these indices match reference generation
+        vel_ref = x_ref[6:9]  
         omg_ref = x_ref[9:12]
         q_ref = qg 
     
@@ -203,6 +203,12 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
         metrics['iterations'].append(k)
 
         # Add detailed printing for solves
+
+        if np.isnan(state_cost) or np.isnan(input_cost) or np.isnan(total_cost):
+
+            #print time in simulation 
+            print(f"Time in simulation: {current_time:.6f}")
+            exit(0)
         
         print(f"\n=== Solve {i+1} Details ===")
         print(f"Iterations needed: {k}")
@@ -248,8 +254,6 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory,
         
         # Update rho if using adaptation and only every 10th step
         if mpc.rho_adapter is not None:
-            #new_rho = mpc.update_rho()
-            #rho_history.append(new_rho)
             rho_history.append(mpc.cache['rho'])
             
         # Shift nominal trajectories with goals
