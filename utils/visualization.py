@@ -81,9 +81,6 @@ def visualize_trajectory(x_all, u_all, trajectory=None, dt=0.02, save_path=None)
 
     plt.tight_layout()
     
-    if save_path:
-        plt.savefig(save_path / 'trajectory_time_series.png', 
-                    dpi=300, bbox_inches='tight', pad_inches=0.1)
 
     # Create side view only (X-Z plane)
     fig2 = plt.figure(figsize=(10, 6), dpi=300)
@@ -105,10 +102,6 @@ def visualize_trajectory(x_all, u_all, trajectory=None, dt=0.02, save_path=None)
     ax.legend(fontsize=10)
     
     plt.tight_layout()
-    
-    if save_path:
-        plt.savefig(save_path / 'trajectory_side_view.png', 
-                    dpi=300, bbox_inches='tight', pad_inches=0.1)
     
     plt.show()
 
@@ -511,7 +504,7 @@ def plot_paper_hover_iterations():
     plt.xlabel('Time (s)', fontsize=10)
     plt.ylabel('Cumulative Iterations', fontsize=10)
     plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=9)
+    plt.legend(fontsize=12, framealpha=1.0, edgecolor='black')
     
     # Calculate reductions from fixed (baseline)
     fixed_to_adaptive = ((fixed_cum[-1] - adaptive_cum[-1]) / fixed_cum[-1]) * 100
@@ -531,12 +524,7 @@ def plot_paper_hover_iterations():
     print(f"Heuristic ρ: {heuristic_cum[-1]:.0f}")
 
     plt.tight_layout()
-    
-    # Save with high quality
-    plt.savefig('../images/hover_iterations.png', 
-                dpi=300, 
-                bbox_inches='tight',
-                pad_inches=0.1)
+
     plt.show()
 
 
@@ -565,22 +553,17 @@ def plot_paper_rho_trends():
     plt.xlabel('Time (s)', fontsize=10)
     plt.ylabel(r'$\rho$', fontsize=12)  # Using LaTeX formatting
     plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=9)
+    plt.legend(fontsize=12, framealpha=1.0, edgecolor='black')
     
     plt.tight_layout()
-    
-    # Save with high quality
-    plt.savefig('../images/rho_trends.png', 
-                dpi=300, 
-                bbox_inches='tight',
-                pad_inches=0.1)
+
     plt.show()
 
 def plot_paper_rho_comparison():
     """Generate comparison plot of different fixed rho values vs adaptive"""
     data_dir = Path('../data/iterations')
     
-    plt.figure(figsize=(10, 6), dpi=100)
+    fig = plt.figure(figsize=(10, 6), dpi=100)
 
     # Load data
     rho_50 = np.loadtxt(data_dir / 'traj_normal_0.1_hover.txt')
@@ -627,38 +610,30 @@ def plot_paper_rho_comparison():
     print(f"Adaptive: {adapt_100} iterations ({red_100:.1f}% reduction)")
     print(f"Heuristic: {heur_100} iterations ({red_100_h:.1f}% reduction)")
 
-    # Plot the data
-    plt.subplot(3,1,1)
-    plt.plot(t, rho_50, 'r-', label=r'$\rho = 50$ fixed', linewidth=2)
-    plt.plot(t, rho_50_adapt, 'b-', label=r'$\rho = 50$ adaptive', linewidth=2)
-    plt.plot(t, rho_50_heuristic, 'g-', label=r'$\rho = 50$ heuristic', linewidth=2)
-    plt.legend()
+    # Plot the data with explicit axis control for all subplots
+    ax1 = plt.subplot(3,1,1)
+    ax1.plot(t, rho_50, 'r-', label=r'$\rho = 50$ fixed', linewidth=2)
+    ax1.plot(t, rho_50_adapt, 'b-', label=r'$\rho = 50$ adaptive', linewidth=2)
+    ax1.plot(t, rho_50_heuristic, 'g-', label=r'$\rho = 50$ heuristic', linewidth=2)
+    ax1.legend(fontsize=12, framealpha=1.0, edgecolor='black')
+    ax1.grid(False)
 
-    plt.subplot(3,1,2)
-    plt.plot(t, rho_75, 'r-', label=r'$\rho = 75$ fixed', linewidth=2)
-    plt.plot(t, rho_75_adapt, 'b-', label=r'$\rho = 75$ adaptive', linewidth=2)
-    plt.plot(t, rho_75_heuristic, 'g-', label=r'$\rho = 75$ heuristic', linewidth=2)
-    plt.legend()
+    ax2 = plt.subplot(3,1,2)
+    ax2.plot(t, rho_75, 'r-', label=r'$\rho = 75$ fixed', linewidth=2)
+    ax2.plot(t, rho_75_adapt, 'b-', label=r'$\rho = 75$ adaptive', linewidth=2)
+    ax2.plot(t, rho_75_heuristic, 'g-', label=r'$\rho = 75$ heuristic', linewidth=2)
+    ax2.legend(fontsize=12, framealpha=1.0, edgecolor='black')
+    ax2.grid(False)
 
-    plt.subplot(3,1,3)
-    plt.plot(t, rho_100, 'r-', label=r'$\rho = 100$ fixed', linewidth=2)
-    plt.plot(t, rho_100_adapt, 'b-', label=r'$\rho = 100$ adaptive', linewidth=2)
-    plt.plot(t, rho_100_heuristic, 'g-', label=r'$\rho = 100$ heuristic', linewidth=2)
-    plt.legend()
-
-    #print by how adaptive and heurritic reduce iterations from fixed
-
-
-    plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=9)
+    ax3 = plt.subplot(3,1,3)
+    ax3.plot(t, rho_100, 'r-', label=r'$\rho = 100$ fixed', linewidth=2)
+    ax3.plot(t, rho_100_adapt, 'b-', label=r'$\rho = 100$ adaptive', linewidth=2)
+    ax3.plot(t, rho_100_heuristic, 'g-', label=r'$\rho = 100$ heuristic', linewidth=2)
+    ax3.legend(fontsize=12, framealpha=1.0, edgecolor='black')
+    ax3.grid(False)
     
     plt.tight_layout()
-    
-    
-    plt.savefig('../images/rho_comparison.png', 
-                dpi=300, 
-                bbox_inches='tight',
-                pad_inches=0.1)
+
     plt.show()
 
 
@@ -689,52 +664,58 @@ def plot_paper_trajectory_comparison():
         div_idx_adaptive = find_divergence(x_adaptive, reference)
         div_idx_heuristic = find_divergence(x_heuristic, reference)
         
-        # Position time series plot (Z-axis) - Plot full trajectories
-        fig_pos = plt.figure(figsize=(10, 4), dpi=300)
+        # Position time series plot (Z-axis)
+        plt.figure(figsize=(12, 5))
         t = np.arange(len(reference)) * dt
         
-        # Plot reference first (in background)
-        plt.plot(t, reference[:, 2], 'k--', label='Reference', linewidth=1.5, alpha=0.7)
+        # Plot reference and actual trajectories
+        plt.plot(t, reference[:, 2], 'k--', label='Reference', linewidth=1.5, alpha=0.9)
         
-        # Plot actual trajectories with different line styles
-        plt.plot(t, x_normal[:, 2], 'r:', label='Fixed ρ', linewidth=2, alpha=0.8)
-        plt.plot(t, x_adaptive[:, 2], 'b-', label='Adaptive ρ', linewidth=1.5)
-        plt.plot(t, x_heuristic[:, 2], 'g-.', label='Heuristic ρ', linewidth=1.5)
+        # Fixed ρ with end marker at last point before divergence
+        plt.plot(t[:div_idx_normal], x_normal[:div_idx_normal, 2], 'r:', label='Fixed ρ', linewidth=2)
+        plt.plot(t[div_idx_normal-1], x_normal[div_idx_normal-1, 2], 'r*', markersize=10, markeredgewidth=2)
         
-        plt.ylabel('Z Position (m)', fontsize=12)
+        plt.plot(t, x_adaptive[:, 2], 'b-', label='OSQP-Adaptive ρ', linewidth=1.5)
+        
+        # Heuristic with end marker at last point before divergence
+        plt.plot(t[:div_idx_heuristic], x_heuristic[:div_idx_heuristic, 2], '#008000', label='Ratio-Heuristic ρ', linewidth=1.5)
+        plt.plot(t[div_idx_heuristic-1], x_heuristic[div_idx_heuristic-1, 2], 'g*', markersize=10, markeredgewidth=2)
+        
         plt.xlabel('Time (s)', fontsize=12)
-        plt.legend(fontsize=10, ncol=2)
+        plt.ylabel('Z Position (m)', fontsize=12)
         plt.grid(True, alpha=0.3)
-        plt.tick_params(labelsize=10)
+        
+        # Bottom left legend with size 15
+        plt.legend(fontsize=12, 
+                  loc='lower left',
+                  framealpha=1.0,
+                  edgecolor='black')
+        
         plt.tight_layout()
         
-        plt.savefig('../images/position_comparison_wind.png', 
-                    dpi=300, bbox_inches='tight', pad_inches=0.1)
-
-        # Side view trajectory plot (X-Z plane)
-        fig_traj = plt.figure(figsize=(10, 6), dpi=300)
+        plt.show()
         
-        # Plot reference trajectory
-        plt.plot(reference[:, 0], reference[:, 2], 'k--', label='Reference', linewidth=1.5, alpha=0.7)
+        plt.figure(figsize=(12, 8))
         
-        # Plot actual trajectories with different line styles
-        plt.plot(x_normal[:div_idx_normal, 0], x_normal[:div_idx_normal, 2], 'r:', label='Fixed ρ', linewidth=2, alpha=0.8)
-        plt.plot(x_adaptive[:div_idx_adaptive, 0], x_adaptive[:div_idx_adaptive, 2], 'b-', label='Adaptive ρ', linewidth=1.5)
-        plt.plot(x_heuristic[:div_idx_heuristic, 0], x_heuristic[:div_idx_heuristic, 2], 'g-.', label='Heuristic ρ', linewidth=1.5)
+        # Plot trajectories
+        plt.plot(reference[:, 0], reference[:, 2], 'k--', label='Reference', linewidth=1.5, alpha=0.9)
+        plt.plot(x_normal[:div_idx_normal, 0], x_normal[:div_idx_normal, 2], 'r:', label='Fixed ρ', linewidth=2)
+        plt.plot(x_adaptive[:div_idx_adaptive, 0], x_adaptive[:div_idx_adaptive, 2], 'b-', label='OSQP-Adaptive ρ', linewidth=1.5)
+        plt.plot(x_heuristic[:div_idx_heuristic, 0], x_heuristic[:div_idx_heuristic, 2], '#008000', label='Ratio-Heuristic ρ', linewidth=1.5)
         
-        # plt.xlabel('X (m)', fontsize=12)
-        # plt.ylabel('Z (m)', fontsize=12)
         plt.grid(True, alpha=0.3)
         plt.gca().set_aspect('equal')
-
         plt.gca().set_xticklabels([])
         plt.gca().set_yticklabels([])
         
-        plt.legend(fontsize=10)
+        # Bottom left legend
+        plt.legend(fontsize=12, 
+                  loc='lower left',
+                  framealpha=1.0,
+                  edgecolor='black')
+        
         plt.tight_layout()
         
-        plt.savefig('../images/trajectory_comparison_wind.png', 
-                    dpi=300, bbox_inches='tight', pad_inches=0.1)
         
         plt.show()
 
@@ -795,10 +776,6 @@ def plot_paper_rho_wind_comparison():
         plt.ylim([0, max_rho * 1.1])
         
         plt.tight_layout()
-        
-        # Save both PDF and PNG
-        #plt.savefig('../images/rho_adaptation_wind.pdf', bbox_inches='tight', pad_inches=0.1)
-        plt.savefig('../images/rho_adaptation_wind.png', dpi=300, bbox_inches='tight', pad_inches=0.1)
         
         plt.show()
         

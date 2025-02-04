@@ -62,16 +62,19 @@ class TinyMPC:
         self.recache = recache
 
         
-
-        
-
     def _compute_dlqr(self, A, B, Q, R, n_steps):
         """Compute Discrete-time LQR solution"""
         P = Q
         for _ in range(n_steps):
-            K = np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
+            #K = np.linalg.inv(R + B.T @ P @ B) @ B.T @ P @ A
+            K = np.linalg.solve(
+                R + B.T @ P @ B + 1e-8*np.eye(B.shape[1]),  # Add regularization
+                B.T @ P @ A
+            )
             P = Q + A.T @ P @ (A - B @ K)
         return P
+
+    
 
     def compute_cache_terms(self):
         """Compute and cache terms for ADMM"""
@@ -247,8 +250,6 @@ class TinyMPC:
             z_prev = np.copy(z)
             v_prev = np.copy(v)
 
-            
-
             if (pri_res_input < self.abs_pri_tol and dua_res_input < self.abs_dua_tol and
                 pri_res_state < self.abs_pri_tol and dua_res_state < self.abs_dua_tol):
                 print("Converged after ", k, " iterations")
@@ -266,9 +267,6 @@ class TinyMPC:
 
         if self.rho_adapter is not None :
             self.update_rho()
-
-       
-
 
         return x, u, status, k
 

@@ -5,7 +5,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 import numpy as np
 from src.quadrotor import QuadrotorDynamics
 from src.tinympc import TinyMPC
-from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_costs_comparison, plot_violations_comparison, save_metrics, plot_all_metrics, plot_state_and_costs, plot_comparisons
+from utils.visualization import visualize_trajectory, plot_iterations, plot_rho_history, plot_costs_comparison, plot_violations_comparison, save_metrics, plot_all_metrics, plot_state_and_costs, plot_comparisons, plot_paper_trajectory_comparison
 from utils.traj_simulation import simulate_with_controller
 from scipy.spatial.transform import Rotation as spRot
 from utils.reference_trajectories import Figure8Reference
@@ -44,6 +44,8 @@ def parse_args():
                         help='Use curved trajectory')
     parser.add_argument('--heuristic', action='store_true',
                         help='Use heuristic rho adaptation')
+    parser.add_argument('--plot-paper', action='store_true',
+                        help='Generate paper-quality comparison plots')
     return parser.parse_args()
 
 def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_type='full', use_heuristic=False):
@@ -102,7 +104,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             rho_base=initial_rho, 
             rho_min=1.0, 
             rho_max=200.0,
-            method="heuristic" if use_heuristic else "analytical"
+            method="heuristic" if use_heuristic else "analytical",
+            clip = True
         )
     else:
         rho_adapter = None
@@ -215,7 +218,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
         np.savetxt(data_dir / 'costs' / f"costs{suffix}.txt", metrics['solve_costs'])
         np.savetxt(data_dir / 'violations' / f"violations{suffix}.txt", metrics['violations'])
 
-        visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
+        #visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
 
 
         # Update how we call plot_all_metrics
@@ -233,6 +236,21 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             main.last_rho = rho_history[-1]
             print(f"Saved rho {main.last_rho} for next run")
 
+        # After simulation, save trajectory data
+        data_dir = Path('../data')
+        (data_dir / 'trajectories').mkdir(parents=True, exist_ok=True)
+        
+        # Save position data
+        trajectory_data = np.array([x[0:3] for x in x_all])
+        np.savetxt(data_dir / 'trajectories' / f'traj{suffix}.txt', trajectory_data)
+        
+        # Save reference trajectory (only needs to be done once)
+        ref_path = data_dir / 'trajectories' / 'reference_trajectory.txt'
+        if not ref_path.exists():
+            t = np.arange(len(x_all)) * quad.dt
+            ref_data = np.array([trajectory.generate_reference(ti)[0:3] for ti in t])
+            np.savetxt(ref_path, ref_data)
+
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
         raise
@@ -242,20 +260,23 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
 if __name__ == "__main__":
     args = parse_args()
     
-    # Determine trajectory type
-    if args.straight:
-        traj_type = 'straight'
-    elif args.curve:
-        traj_type = 'curve'
+    if args.plot_paper:
+        plot_paper_trajectory_comparison()
     else:
-        traj_type = 'full'  # default
-    
-    if args.plot_comparison or args.plot_comparison_wind:
-        plot_comparisons(traj_type=traj_type, 
-                        compare_type='wind' if args.plot_comparison_wind else 'normal')
-    else:
-        main(use_rho_adaptation=args.adapt,
-             use_recaching=args.recache,
-             use_wind=args.wind,
-             traj_type=traj_type,
-             use_heuristic=args.heuristic)
+        # Determine trajectory type
+        if args.straight:
+            traj_type = 'straight'
+        elif args.curve:
+            traj_type = 'curve'
+        else:
+            traj_type = 'full'  # default
+        
+        if args.plot_comparison or args.plot_comparison_wind:
+            plot_comparisons(traj_type=traj_type, 
+                            compare_type='wind' if args.plot_comparison_wind else 'normal')
+        else:
+            main(use_rho_adaptation=args.adapt,
+                 use_recaching=args.recache,
+                 use_wind=args.wind,
+                 traj_type=traj_type,
+                 use_heuristic=args.heuristic)
