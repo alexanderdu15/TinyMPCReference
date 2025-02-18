@@ -16,7 +16,7 @@ mpl.rcParams.update({
 })
 
 def visualize_trajectory(x_all, u_all, trajectory=None, dt=0.02, save_path=None):
-    """Visualize trajectory with paper-quality formatting"""
+    """Visualize trajectory with paper-quality formatting in three horizontal subplots"""
     x_all = np.array(x_all)
     u_all = np.array(u_all)
     t = np.arange(len(x_all)) * dt
@@ -40,49 +40,58 @@ def visualize_trajectory(x_all, u_all, trajectory=None, dt=0.02, save_path=None)
         u_all = u_all[:divergence_idx]
         t = t[:divergence_idx]
 
-    # Create time series plots with higher DPI and better formatting
-    fig1, axes = plt.subplots(3, 1, figsize=(12, 10), dpi=300)  # Increased DPI
+    # Create three horizontal subplots
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 5), dpi=300)
     
-    # Position plot with full reference trajectory
-    axes[0].plot(t, x_all[:, 0], 'r-', label='x', linewidth=1.5)
-    axes[0].plot(t, x_all[:, 1], 'g-', label='y', linewidth=1.5)
-    axes[0].plot(t, x_all[:, 2], 'b-', label='z', linewidth=1.5)
+    # Position subplot
+    ax1.plot(t, x_all[:, 0], 'r-', label='x', linewidth=1.5)
+    ax1.plot(t, x_all[:, 1], 'g-', label='y', linewidth=1.5)
+    ax1.plot(t, x_all[:, 2], 'b-', label='z', linewidth=1.5)
     if trajectory is not None:
         x_ref_full = np.array([trajectory.generate_reference(ti)[0:3] for ti in t_full])
-        axes[0].plot(t_full, x_ref_full[:, 0], 'r--', label='x ref', linewidth=1.5, alpha=0.7)
-        axes[0].plot(t_full, x_ref_full[:, 1], 'g--', label='y ref', linewidth=1.5, alpha=0.7)
-        axes[0].plot(t_full, x_ref_full[:, 2], 'b--', label='z ref', linewidth=1.5, alpha=0.7)
-    axes[0].set_ylabel('Position (m)', fontsize=12)
-    axes[0].legend(fontsize=10, ncol=2)  # Two-column legend
-    axes[0].grid(True, alpha=0.3)  # Lighter grid
-    axes[0].tick_params(labelsize=10)
+        ax1.plot(t_full, x_ref_full[:, 0], 'r--', label='x ref', linewidth=1.5, alpha=0.7)
+        ax1.plot(t_full, x_ref_full[:, 1], 'g--', label='y ref', linewidth=1.5, alpha=0.7)
+        ax1.plot(t_full, x_ref_full[:, 2], 'b--', label='z ref', linewidth=1.5, alpha=0.7)
+    ax1.set_title('Position', fontsize=14)
+    ax1.set_xlabel('Time (s)', fontsize=12)
+    ax1.set_ylabel('Position (m)', fontsize=12)
+    ax1.legend(fontsize=10, ncol=2)
+    ax1.grid(True, alpha=0.3)
+    ax1.tick_params(labelsize=10)
 
-    # Attitude plot
-    axes[1].plot(t, x_all[:, 3], 'r-', label='qw', linewidth=1.5)
-    axes[1].plot(t, x_all[:, 4], 'g-', label='qx', linewidth=1.5)
-    axes[1].plot(t, x_all[:, 5], 'b-', label='qy', linewidth=1.5)
-    axes[1].plot(t, x_all[:, 6], 'k-', label='qz', linewidth=1.5)
-    axes[1].set_ylabel('Attitude (quat)', fontsize=12)
-    axes[1].legend(fontsize=10, ncol=2)
-    axes[1].grid(True, alpha=0.3)
-    axes[1].tick_params(labelsize=10)
+    # Attitude subplot
+    ax2.plot(t, x_all[:, 3], 'r-', label='qw', linewidth=1.5)
+    ax2.plot(t, x_all[:, 4], 'g-', label='qx', linewidth=1.5)
+    ax2.plot(t, x_all[:, 5], 'b-', label='qy', linewidth=1.5)
+    ax2.plot(t, x_all[:, 6], 'k-', label='qz', linewidth=1.5)
+    ax2.set_title('Attitude', fontsize=14)
+    ax2.set_xlabel('Time (s)', fontsize=12)
+    ax2.set_ylabel('Quaternion', fontsize=12)
+    ax2.legend(fontsize=10, ncol=2)
+    ax2.grid(True, alpha=0.3)
+    ax2.tick_params(labelsize=10)
 
-    # Control plot
+    # Control subplot
     t_control = t[:len(u_all)]
-    axes[2].plot(t_control, u_all[:, 0], 'r-', label='u₁', linewidth=1.5)
-    axes[2].plot(t_control, u_all[:, 1], 'g-', label='u₂', linewidth=1.5)
-    axes[2].plot(t_control, u_all[:, 2], 'b-', label='u₃', linewidth=1.5)
-    axes[2].plot(t_control, u_all[:, 3], 'k-', label='u₄', linewidth=1.5)
-    axes[2].set_ylabel('Control Input', fontsize=12)
-    axes[2].set_xlabel('Time (s)', fontsize=12)
-    axes[2].legend(fontsize=10, ncol=2)
-    axes[2].grid(True, alpha=0.3)
-    axes[2].tick_params(labelsize=10)
+    ax3.plot(t_control, u_all[:, 0], 'r-', label='u₁', linewidth=1.5)
+    ax3.plot(t_control, u_all[:, 1], 'g-', label='u₂', linewidth=1.5)
+    ax3.plot(t_control, u_all[:, 2], 'b-', label='u₃', linewidth=1.5)
+    ax3.plot(t_control, u_all[:, 3], 'k-', label='u₄', linewidth=1.5)
+    ax3.set_title('Control Inputs', fontsize=14)
+    ax3.set_xlabel('Time (s)', fontsize=12)
+    ax3.set_ylabel('Control Input', fontsize=12)
+    ax3.legend(fontsize=10, ncol=2)
+    ax3.grid(True, alpha=0.3)
+    ax3.tick_params(labelsize=10)
 
     plt.tight_layout()
     
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    plt.show()
 
-    # Create side view only (X-Z plane)
+    # Create side view plot (X-Z plane) as a separate figure
     fig2 = plt.figure(figsize=(10, 6), dpi=300)
     ax = plt.gca()
     
@@ -102,6 +111,11 @@ def visualize_trajectory(x_all, u_all, trajectory=None, dt=0.02, save_path=None)
     ax.legend(fontsize=10)
     
     plt.tight_layout()
+    
+    if save_path:
+        path_parts = save_path.split('.')
+        side_view_path = f"{path_parts[0]}_side_view.{path_parts[1]}"
+        plt.savefig(side_view_path, dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -638,106 +652,72 @@ def plot_paper_rho_comparison():
 
 
 def plot_paper_trajectory_comparison():
-    """Generate paper-quality trajectory comparison plots"""
+    """Three clean figure-8 plots, flipped vertically for better space usage."""
     data_dir = Path('../data')
-    dt = 0.02
     
     try:
-        # Load trajectory data
+        # Load data
         x_normal = np.loadtxt(data_dir / 'trajectories' / 'traj_normal_wind_full.txt')
         x_adaptive = np.loadtxt(data_dir / 'trajectories' / 'traj_adaptive_wind_full.txt')
         x_heuristic = np.loadtxt(data_dir / 'trajectories' / 'traj_adaptive_heuristic_wind_full.txt')
         reference = np.loadtxt(data_dir / 'trajectories' / 'reference_trajectory.txt')
         
-        # Find divergence points for each trajectory (for statistics only)
+        # Find divergence points
         def find_divergence(traj_data, ref_data):
             for i, x in enumerate(traj_data):
-                pos_error = np.linalg.norm(x - ref_data[i])
-                if pos_error > 5.0 or np.any(np.isnan(x)):
-                    print(f"Divergence detected at t = {i*dt:.2f} seconds")
-                    print(f"Position error: {pos_error:.2f} meters")
+                if np.linalg.norm(x - ref_data[i]) > 5.0 or np.any(np.isnan(x)):
                     return i
             return len(traj_data)
         
-        # Get divergence indices for statistics
         div_idx_normal = find_divergence(x_normal, reference)
         div_idx_adaptive = find_divergence(x_adaptive, reference)
         div_idx_heuristic = find_divergence(x_heuristic, reference)
         
-        # Position time series plot (Z-axis)
-        plt.figure(figsize=(12, 5))
-        t = np.arange(len(reference)) * dt
+        # Create figure
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(18, 10))
+        plt.subplots_adjust(wspace=0.1)  # Reduce spacing between plots
         
-        # Plot reference and actual trajectories
-        plt.plot(t, reference[:, 2], 'k--', label='Reference', linewidth=1.5, alpha=0.9)
-        
-        # Fixed ρ with end marker at last point before divergence
-        plt.plot(t[:div_idx_normal], x_normal[:div_idx_normal, 2], 'r:', label='Fixed ρ', linewidth=2)
-        plt.plot(t[div_idx_normal-1], x_normal[div_idx_normal-1, 2], 'r*', markersize=10, markeredgewidth=2)
-        
-        plt.plot(t, x_adaptive[:, 2], 'b-', label='OSQP-Adaptive ρ', linewidth=1.5)
-        
-        # Heuristic with end marker at last point before divergence
-        plt.plot(t[:div_idx_heuristic], x_heuristic[:div_idx_heuristic, 2], '#008000', label='Ratio-Heuristic ρ', linewidth=1.5)
-        plt.plot(t[div_idx_heuristic-1], x_heuristic[div_idx_heuristic-1, 2], 'g*', markersize=10, markeredgewidth=2)
-        
-        plt.xlabel('Time (s)', fontsize=12)
-        plt.ylabel('Z Position (m)', fontsize=12)
-        plt.grid(True, alpha=0.3)
-        
-        # Bottom left legend with size 15
-        plt.legend(fontsize=12, 
-                  loc='lower left',
-                  framealpha=1.0,
-                  edgecolor='black')
-        
-        plt.tight_layout()
-        
-        plt.show()
-        
-        plt.figure(figsize=(12, 8))
-        
-        # Plot trajectories
-        plt.plot(reference[:, 0], reference[:, 2], 'k--', label='Reference', linewidth=1.5, alpha=0.9)
-        plt.plot(x_normal[:div_idx_normal, 0], x_normal[:div_idx_normal, 2], 'r:', label='Fixed ρ', linewidth=2)
-        plt.plot(x_adaptive[:div_idx_adaptive, 0], x_adaptive[:div_idx_adaptive, 2], 'b-', label='OSQP-Adaptive ρ', linewidth=1.5)
-        plt.plot(x_heuristic[:div_idx_heuristic, 0], x_heuristic[:div_idx_heuristic, 2], '#008000', label='Ratio-Heuristic ρ', linewidth=1.5)
-        
-        plt.grid(True, alpha=0.3)
-        plt.gca().set_aspect('equal')
-        plt.gca().set_xticklabels([])
-        plt.gca().set_yticklabels([])
-        
-        # Bottom left legend
-        plt.legend(fontsize=12, 
-                  loc='lower left',
-                  framealpha=1.0,
-                  edgecolor='black')
-        
-        plt.tight_layout()
-        
-        
-        plt.show()
-
-        # Print tracking error statistics (up to divergence points)
-        print("\nWind Disturbance Tracking Error Statistics:")
-        for name, data, div_idx in [
-            ("Fixed ρ", x_normal, div_idx_normal), 
-            ("Adaptive ρ", x_adaptive, div_idx_adaptive),
-            ("Heuristic ρ", x_heuristic, div_idx_heuristic)
-        ]:
-            error = np.linalg.norm(data[:div_idx] - reference[:div_idx, :3], axis=1)
-            print(f"\n{name}:")
-            print(f"• Average Error: {np.mean(error):.4f} m")
-            print(f"• Maximum Error: {np.max(error):.4f} m")
-            print(f"• Tracked for: {div_idx*dt:.2f} seconds")
+        # Common plotting parameters
+        for ax in [ax1, ax2, ax3]:
+            ax.grid(True, alpha=0.2)
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            ax.set_aspect('equal')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['bottom'].set_visible(False)
+            ax.spines['left'].set_visible(False)
             
+        # Plot trajectories (swapping x and z for vertical orientation)
+        # Fixed ρ
+        ax1.plot(reference[:, 2], reference[:, 0], 'k--', alpha=0.7, linewidth=1.5)
+        ax1.plot(x_normal[:div_idx_normal, 2], x_normal[:div_idx_normal, 0], 'r-', linewidth=2)
+        ax1.plot(x_normal[div_idx_normal-1, 2], x_normal[div_idx_normal-1, 0], 'r*', markersize=10)
+        
+        # OSQP-Adaptive
+        ax2.plot(reference[:, 2], reference[:, 0], 'k--', alpha=0.7, linewidth=1.5)
+        ax2.plot(x_adaptive[:, 2], x_adaptive[:, 0], 'b-', linewidth=2)
+        
+        # Heuristic
+        ax3.plot(reference[:, 2], reference[:, 0], 'k--', alpha=0.7, linewidth=1.5)
+        ax3.plot(x_heuristic[:div_idx_heuristic, 2], x_heuristic[:div_idx_heuristic, 0], 'g-', linewidth=2)
+        ax3.plot(x_heuristic[div_idx_heuristic-1, 2], x_heuristic[div_idx_heuristic-1, 0], 'g*', markersize=10)
+        
+        # Ensure same limits
+        xlims = [ax.get_xlim() for ax in [ax1, ax2, ax3]]
+        ylims = [ax.get_ylim() for ax in [ax1, ax2, ax3]]
+        x_min, x_max = min(l[0] for l in xlims), max(l[1] for l in xlims)
+        y_min, y_max = min(l[0] for l in ylims), max(l[1] for l in ylims)
+        
+        for ax in [ax1, ax2, ax3]:
+            ax.set_xlim(x_min, x_max)
+            ax.set_ylim(y_min, y_max)
+        
+        plt.tight_layout()
+        plt.show()
+        
     except FileNotFoundError as e:
         print(f"Error: {e}")
-        print("Make sure to run all three wind simulations first:")
-        print("1. python traj.py --wind")
-        print("2. python traj.py --wind --adapt")
-        print("3. python traj.py --wind --adapt --heuristic")
 
 
 def plot_paper_rho_wind_comparison():
@@ -786,6 +766,78 @@ def plot_paper_rho_wind_comparison():
         print("2. python traj.py --wind --adapt")
         print("3. python traj.py --wind --adapt --heuristic")
 
+def plot_combined_paper_figures():
+    """Combine rho_trend, hover_iterations, and rho_comparison plots horizontally"""
+    
+    # Create one wide figure with three subplots side by side
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(24, 6))
+    
+    # First subplot - Rho Trends
+    data_dir = Path('../data/rho_history')
+    analytical = np.loadtxt(data_dir / 'traj_adaptive_hover.txt')
+    heuristic = np.loadtxt(data_dir / 'traj_adaptive_heuristic_hover.txt')
+    analytical = np.concatenate(([85.0], analytical))
+    heuristic = np.concatenate(([85.0], heuristic))
+    
+    t = np.arange(len(analytical)) * 0.02
+    ax1.plot(t, analytical, 'b-', label='OSQP', linewidth=2)
+    ax1.plot(t, heuristic, 'g-', label='Residual Heuristic', linewidth=2)
+    ax1.set_xlabel('Time (s)', fontsize=12)
+    ax1.set_ylabel(r'$\rho$', fontsize=12)
+    ax1.grid(True, alpha=0.3)
+    ax1.legend(fontsize=12, framealpha=1.0, edgecolor='black')
+    ax1.set_title('Penalty Parameter Adaptation', fontsize=14)
+    
+    # Second subplot - Hover Iterations
+    data_dir = Path('../data/iterations')
+    rho_50 = np.loadtxt(data_dir / 'traj_normal_0.1_hover.txt')
+    rho_75 = np.loadtxt(data_dir / 'traj_normal_1_hover.txt')
+    rho_100 = np.loadtxt(data_dir / 'traj_normal_100_hover.txt')
+    t = np.arange(len(rho_50)) * 0.02
+    
+    ax2.plot(t, rho_50, 'r-', label=r'$\rho = 50$', linewidth=2)
+    ax2.plot(t, rho_75, 'b-', label=r'$\rho = 75$', linewidth=2)
+    ax2.plot(t, rho_100, 'g-', label=r'$\rho = 100$', linewidth=2)
+    ax2.set_xlabel('Time (s)', fontsize=12)
+    ax2.set_ylabel('Iterations', fontsize=12)
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(fontsize=12, framealpha=1.0, edgecolor='black')
+    ax2.set_title('Fixed Parameter Performance', fontsize=14)
+    
+    # Third subplot - Rho Comparison
+    rho_50_adapt = np.loadtxt(data_dir / 'traj_adaptive_50_hover.txt')
+    rho_75_adapt = np.loadtxt(data_dir / 'traj_adaptive_75_hover.txt')
+    rho_100_adapt = np.loadtxt(data_dir / 'traj_adaptive_100_hover.txt')
+
+    # Load data
+    rho_50 = np.loadtxt(data_dir / 'traj_normal_0.1_hover.txt')
+    rho_75 = np.loadtxt(data_dir / 'traj_normal_1_hover.txt')
+    rho_100 = np.loadtxt(data_dir / 'traj_normal_100_hover.txt')
+    
+    rho_50_adapt = np.loadtxt(data_dir / 'traj_adaptive_50_hover.txt')
+    rho_75_adapt = np.loadtxt(data_dir / 'traj_adaptive_75_hover.txt')
+    rho_100_adapt = np.loadtxt(data_dir / 'traj_adaptive_100_hover.txt')
+
+    rho_50_heuristic = np.loadtxt(data_dir / 'traj_adaptive_heuristic_50_hover.txt')
+    rho_75_heuristic = np.loadtxt(data_dir / 'traj_adaptive_heuristic_75_hover.txt')
+    rho_100_heuristic = np.loadtxt(data_dir / 'traj_adaptive_heuristic_100_hover.txt')
+    
+    ax3.plot(t, rho_50, 'r:', label='Fixed', linewidth=2)
+    ax3.plot(t, rho_50_adapt, 'b-', label='Adaptive', linewidth=2)
+    ax3.plot(t, rho_50_heuristic, 'g-', label='Heuristic', linewidth=2)
+    ax3.set_xlabel('Time (s)', fontsize=12)
+    ax3.set_ylabel('Iterations', fontsize=12)
+    ax3.grid(True, alpha=0.3)
+    ax3.legend(fontsize=12, framealpha=1.0, edgecolor='black')
+    ax3.set_title('Parameter Adaptation Comparison', fontsize=14)
+    
+    plt.tight_layout()
+    
+    # # Save the combined figure
+    # plt.savefig('../images/combined_analysis.png', 
+    #             dpi=300, bbox_inches='tight', pad_inches=0.1)
+    plt.show()
+
 
 
 
@@ -793,30 +845,38 @@ def plot_paper_figures():
     """Generate all figures for the paper"""
     print("\nGenerating paper figures...")
     
-    # 1. Hover Iterations Plot
-    print("\n1. Generating hover iterations plot...")
-    try:
-        plot_paper_hover_iterations()
-        print("✓ Hover iterations plot saved")
-    except FileNotFoundError as e:
-        print(f"✗ Error: {e}")
-        print("  Make sure you've run: python hover.py --adapt and python hover.py")
+    # # 1. Hover Iterations Plot
+    # print("\n1. Generating hover iterations plot...")
+    # try:
+    #     plot_paper_hover_iterations()
+    #     print("✓ Hover iterations plot saved")
+    # except FileNotFoundError as e:
+    #     print(f"✗ Error: {e}")
+    #     print("  Make sure you've run: python hover.py --adapt and python hover.py")
     
-    # 2. Rho Trends Plot
-    print("\n2. Generating rho trends plot...")
-    try:
-        plot_paper_rho_trends()
-        print("✓ Rho trends plot saved")
-    except FileNotFoundError as e:
-        print(f"✗ Error: {e}")
-        print("  Make sure you've run: python hover.py --adapt and python hover.py --adapt --heuristic")
+    # # 2. Rho Trends Plot
+    # print("\n2. Generating rho trends plot...")
+    # try:
+    #     plot_paper_rho_trends()
+    #     print("✓ Rho trends plot saved")
+    # except FileNotFoundError as e:
+    #     print(f"✗ Error: {e}")
+    #     print("  Make sure you've run: python hover.py --adapt and python hover.py --adapt --heuristic")
 
 
-    # 3. Rho Comparison Plot
-    print("\n3. Generating rho comparison plot...")
+    # # 3. Rho Comparison Plot
+    # print("\n3. Generating rho comparison plot...")
+    # try:
+    #     plot_paper_rho_comparison()
+    #     print("✓ Rho comparison plot saved")
+    # except FileNotFoundError as e:
+    #     print(f"✗ Error: {e}")
+    #     print("  Make sure you've run: python hover.py --adapt and python hover.py --adapt --heuristic")
+
+
     try:
-        plot_paper_rho_comparison()
-        print("✓ Rho comparison plot saved")
+        plot_combined_paper_figures()
+        print("✓ Combined paper figures saved")
     except FileNotFoundError as e:
         print(f"✗ Error: {e}")
         print("  Make sure you've run: python hover.py --adapt and python hover.py --adapt --heuristic")

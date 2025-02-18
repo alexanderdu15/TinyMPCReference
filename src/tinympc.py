@@ -246,6 +246,14 @@ class TinyMPC:
             dua_res_input = np.max(np.abs(self.cache['rho'] * (z_prev - z)))
             dua_res_state = np.max(np.abs(self.cache['rho'] * (v_prev - v)))
 
+            #print residual every 50 iterations
+            if k % 50 == 0:
+                print(f"Iteration {k}:")
+                print(f"Input Residual: {pri_res_input}")
+                print(f"State Residual: {pri_res_state}")
+                print(f"Dual Input Residual: {dua_res_input}")
+                print(f"Dual State Residual: {dua_res_state}")
+
 
             z_prev = np.copy(z)
             v_prev = np.copy(v)

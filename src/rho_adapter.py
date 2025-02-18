@@ -57,12 +57,28 @@ class RhoAdapter:
         """Format matrices into the form needed for residual computation"""
         nx = x_prev.shape[0]  # Should be 12
         nu = u_prev.shape[0]  # Should be 4
+
+        print(f"nx: {nx}, nu: {nu}")
+
         
         # Reshape inputs to ensure correct dimensions
         x_prev = x_prev.reshape(nx, -1)  
         u_prev = u_prev.reshape(nu, -1)
         v_prev = v_prev.reshape(nx, -1)
         z_prev = z_prev.reshape(nu, -1)
+
+        print("x_prev shape:", x_prev.shape)
+        print("u_prev shape:", u_prev.shape)
+        print("v_prev shape:", v_prev.shape)
+        print("z_prev shape:", z_prev.shape)
+        print("g_prev shape:", g_prev.shape)
+        print("y_prev shape:", y_prev.shape)
+        
+        # Also let's see the actual values in cache
+        print("\nCache contents:")
+        for key, value in cache.items():
+            if isinstance(value, np.ndarray):
+                print(f"{key} shape:", value.shape)
 
         # 1. Form decision variable x (should be Nx*N + Nu*(N-1))
         x_decision = []
@@ -77,6 +93,8 @@ class RhoAdapter:
         A_inputs = []
         A_base = cache['A']
         B_base = cache['B']
+
+        print(f"A_base: {A_base.shape}, B_base: {B_base.shape}")
 
         for i in range(N-1):
             # Dynamics constraints
@@ -113,6 +131,8 @@ class RhoAdapter:
         # 5. Form cost matrix P
         Q = cache['Q']
         R = cache['R']
+
+        print(f"Q: {Q.shape}, R: {R.shape}")
         P_blocks = []
         for i in range(N):
             if i < N-1:
@@ -123,6 +143,10 @@ class RhoAdapter:
         P = block_diag(*P_blocks)
 
         # 6. Form cost vector q (zero for now)
+        print(f"xg: {xg.shape}")
+        print("xg[:12]:", xg[:12])
+        print("uhover:", uhover)
+
         q_blocks = []
         for i in range(N):
             # For hover, reference is just xg
@@ -208,3 +232,4 @@ class RhoAdapter:
         }
         
         return updates
+

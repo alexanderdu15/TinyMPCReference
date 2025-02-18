@@ -79,7 +79,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
 
 
     # Setup MPC
-    N = 5
+    N = 10
     initial_rho = getattr(main, 'last_rho', 85.0)  # Default 85.0 if first run
     
     if use_rho_adaptation:
@@ -105,6 +105,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
         recache=use_recaching,
         mode='hover'
     )
+
+
     # Set bounds
     u_max = [1.0-ug[0]] * quad.nu
     u_min = [-ug[0]] * quad.nu
