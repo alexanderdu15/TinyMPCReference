@@ -44,7 +44,7 @@ def parse_args():
     
     return parser.parse_args()
 
-def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heuristic=False):
+def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heuristic=False, rho_update_freq=1):
     """Main function for hover example"""
     print("\nStarting hover simulation with:")
     print(f"- Rho adaptation: {'enabled' if use_rho_adaptation else 'disabled'}")
@@ -161,10 +161,10 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
                     'costs', 'violations']:  # Added new directories while keeping old ones
         (data_dir / dir_name).mkdir(parents=True, exist_ok=True)
 
-    # Determine suffix
+    # Modify the suffix to include rho update frequency
     suffix = '_normal'
     if use_rho_adaptation:
-        suffix = '_adaptive'
+        suffix = f'_adaptive_freq_{rho_update_freq}'
         if use_heuristic:
             suffix += '_heuristic'
     if use_wind:
@@ -172,6 +172,15 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
     if use_recaching:
         suffix += '_recache'
     suffix += f'_hover'
+
+    # Create paper_plots directory
+    paper_plots_dir = data_dir / 'paper_plots'
+    paper_plots_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save iterations data to paper_plots directory
+    np.savetxt(paper_plots_dir / f"iterations{suffix}.txt", iterations)
+    if use_rho_adaptation:
+        np.savetxt(paper_plots_dir / f"rho_history{suffix}.txt", rho_history)
 
     # Save metrics to files
     np.savetxt(data_dir / 'iterations' / f"traj{suffix}.txt", iterations)
@@ -185,8 +194,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
     visualize_trajectory(x_all, u_all, dt=quad.dt)
 
     # Update how we call plot_all_metrics
-    plot_all_metrics(suffix=suffix, use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
-    plot_state_and_costs(suffix=suffix, use_rho_adaptation=use_rho_adaptation)
+    # plot_all_metrics(suffix=suffix, use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
+    # plot_state_and_costs(suffix=suffix, use_rho_adaptation=use_rho_adaptation)
 
     print("\nSimulation completed successfully!")
     print(f"Average iterations per step: {np.mean(iterations):.2f}")
@@ -199,8 +208,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
         main.last_rho = rho_history[-1]
         print(f"Saved rho {main.last_rho} for next run")
 
-    if args.plot_iterations_comparison:
-        plot_hover_iterations_comparison()
+    # if args.plot_iterations_comparison:
+    #     plot_hover_iterations_comparison()
 
 if __name__ == "__main__":
     args = parse_args()
@@ -215,6 +224,7 @@ if __name__ == "__main__":
         main(use_rho_adaptation=args.adapt,
              use_recaching=args.recache,
              use_wind=args.wind,
-             use_heuristic=args.heuristic)
+             use_heuristic=args.heuristic,
+             rho_update_freq=1)  # Add frequency parameter here
 
        
