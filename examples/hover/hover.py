@@ -170,7 +170,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
     if use_wind:
         suffix += '_wind'
     if use_recaching:
-        suffix += '_recache'
+        suffix += f'_recache_freq_{rho_update_freq}'
     suffix += f'_hover'
 
     # Create paper_plots directory
@@ -225,6 +225,6 @@ if __name__ == "__main__":
              use_recaching=args.recache,
              use_wind=args.wind,
              use_heuristic=args.heuristic,
-             rho_update_freq=1)  # Add frequency parameter here
+             rho_update_freq=10)  # Add frequency parameter here
 
        

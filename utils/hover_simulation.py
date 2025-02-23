@@ -5,6 +5,8 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 import numpy as np
 from src.quadrotor import QuadrotorDynamics
+import autograd.numpy as np
+from autograd.numpy.linalg import norm
 
 # Global reference states
 rg = np.array([0.0, 0, 0.0])
@@ -26,8 +28,8 @@ def delta_x_quat(x_curr, x_ref=None):
     omg_ref = omgg
     q_ref = qg
     
-    # Current state
-    q = x_curr[3:7]/np.linalg.norm(x_curr[3:7])  # Normalize quaternion
+    # Current state - normalize quaternion using autograd.numpy
+    q = x_curr[3:7]/norm(x_curr[3:7])  # Use autograd norm instead of np.linalg.norm
     phi = QuadrotorDynamics.qtorp(QuadrotorDynamics.L(q_ref).T @ q)
     
     delta_x = np.hstack([
@@ -55,8 +57,8 @@ def tinympc_controller(x_curr, x_nom, u_nom, mpc):
 
 def generate_wind(t):
     """Generate time-varying wind disturbance"""
-    wind_mean = np.array([0.01, 0.0, 0.03])
-    wind_freq = 0.05
+    wind_mean = np.array([0.5, 0.1, 0.03])
+    wind_freq = 0.5
     wind_amp = 0.05
     wind = wind_mean + wind_amp * np.array([
         np.sin(wind_freq * t),
@@ -88,24 +90,32 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, NSIM=100, use_wind=Fal
         # Run MPC step
         u, k, status, x_traj = tinympc_controller(x_curr, x_nom, u_nom, mpc)
         
-        # Compute state error
+        # Compute state error with normalized quaternion
         state_error = delta_x_quat(x_curr)
         
-        # Compute costs like in trajectory simulation
-        state_cost = float(state_error.T @ mpc.cache['Q'] @ state_error)
-        input_cost = float(u.T @ mpc.cache['R'] @ u)
-        total_cost = state_cost + input_cost
+        # Add numerical safeguards for cost computation
+        try:
+            state_cost = float(state_error.T @ mpc.cache['Q'] @ state_error)
+            input_cost = float(u.T @ mpc.cache['R'] @ u)
+            total_cost = state_cost + input_cost
+        except:
+            state_cost = float('inf')
+            input_cost = float('inf')
+            total_cost = float('inf')
+            
         metrics['solve_costs'].append([state_cost, input_cost, total_cost])
 
-        # Compute violations (already fixed)
+        # Compute violations with normalized quaternion
         u_violation = np.maximum(0, np.maximum(
             np.abs(u) - mpc.umax, 
             mpc.umin - np.abs(u)
         ))
         
+        # Use normalized quaternion for reduced state
+        q_normalized = x_curr[3:7]/norm(x_curr[3:7])
         x_reduced = np.hstack([
             x_curr[0:3],
-            quad.qtorp(x_curr[3:7]),
+            quad.qtorp(q_normalized),
             x_curr[7:10],
             x_curr[10:13]
         ])
@@ -117,7 +127,7 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, NSIM=100, use_wind=Fal
         metrics['violations'].append([np.sum(u_violation), np.sum(x_violation)])
         metrics['iterations'].append(k)
 
-        # Simulate with wind if enabled
+        # Simulate system
         if use_wind:
             wind_vec = generate_wind(current_time)
             x_curr = quad.dynamics_rk4(x_curr, u, dt=dt, wind_vec=wind_vec)
@@ -126,23 +136,19 @@ def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, NSIM=100, use_wind=Fal
         
         current_time += dt
         
-        # Store results
+        # Store results with normalized quaternion for metrics
         x_all.append(x_curr)
         u_all.append(u)
         iterations.append(k)
         
-        # Store additional metrics
-        pos_error = np.linalg.norm(x_curr[0:3] - xg[0:3])
-        att_error = np.linalg.norm(x_curr[3:7] - xg[3:7])
+        # Compute metrics with normalized quaternion
+        q_normalized = x_curr[3:7]/norm(x_curr[3:7])
+        pos_error = norm(x_curr[0:3] - xg[0:3])
+        att_error = norm(q_normalized - xg[3:7])
         metrics['trajectory_costs'].append(pos_error + att_error)
         metrics['control_efforts'].append(np.sum(np.abs(u[1:])))
         
-        # Update rho if using adaptation
         if mpc.rho_adapter is not None:
             rho_history.append(mpc.cache['rho'])
 
-    # Convert to numpy arrays
-    x_all = np.array(x_all)
-    u_all = np.array(u_all)
-    
-    return x_all, u_all, iterations, rho_history, metrics
+    return np.array(x_all), np.array(u_all), iterations, rho_history, metrics

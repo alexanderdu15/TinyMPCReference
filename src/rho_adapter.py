@@ -5,7 +5,7 @@ from utils.hover_simulation import uhover, xg
 from autograd import jacobian
 
 class RhoAdapter:
-    def __init__(self, rho_base=85.0, rho_min=70.0, rho_max=100.0, tolerance=1.1, method="analytical", clip = False):
+    def __init__(self, rho_base=85.0, rho_min=60.0, rho_max=100.0, tolerance=1.1, method="analytical", clip = False):
         self.rho_base = rho_base
         self.rho_min = rho_min
         self.rho_max = rho_max
@@ -57,9 +57,6 @@ class RhoAdapter:
         """Format matrices into the form needed for residual computation"""
         nx = x_prev.shape[0]  # Should be 12
         nu = u_prev.shape[0]  # Should be 4
-
-        print(f"nx: {nx}, nu: {nu}")
-
         
         # Reshape inputs to ensure correct dimensions
         x_prev = x_prev.reshape(nx, -1)  
@@ -67,18 +64,12 @@ class RhoAdapter:
         v_prev = v_prev.reshape(nx, -1)
         z_prev = z_prev.reshape(nu, -1)
 
-        print("x_prev shape:", x_prev.shape)
-        print("u_prev shape:", u_prev.shape)
-        print("v_prev shape:", v_prev.shape)
-        print("z_prev shape:", z_prev.shape)
-        print("g_prev shape:", g_prev.shape)
-        print("y_prev shape:", y_prev.shape)
-        
-        # Also let's see the actual values in cache
-        print("\nCache contents:")
-        for key, value in cache.items():
-            if isinstance(value, np.ndarray):
-                print(f"{key} shape:", value.shape)
+       
+        # # Also let's see the actual values in cache
+        # print("\nCache contents:")
+        # for key, value in cache.items():
+        #     if isinstance(value, np.ndarray):
+        #         print(f"{key} shape:", value.shape)
 
         # 1. Form decision variable x (should be Nx*N + Nu*(N-1))
         x_decision = []
@@ -94,7 +85,7 @@ class RhoAdapter:
         A_base = cache['A']
         B_base = cache['B']
 
-        print(f"A_base: {A_base.shape}, B_base: {B_base.shape}")
+        #print(f"A_base: {A_base.shape}, B_base: {B_base.shape}")
 
         for i in range(N-1):
             # Dynamics constraints
@@ -132,7 +123,6 @@ class RhoAdapter:
         Q = cache['Q']
         R = cache['R']
 
-        print(f"Q: {Q.shape}, R: {R.shape}")
         P_blocks = []
         for i in range(N):
             if i < N-1:
@@ -142,10 +132,10 @@ class RhoAdapter:
             P_blocks.append(P_block)
         P = block_diag(*P_blocks)
 
-        # 6. Form cost vector q (zero for now)
-        print(f"xg: {xg.shape}")
-        print("xg[:12]:", xg[:12])
-        print("uhover:", uhover)
+        # # 6. Form cost vector q (zero for now)
+        # print(f"xg: {xg.shape}")
+        # print("xg[:12]:", xg[:12])
+        # print("uhover:", uhover)
 
         q_blocks = []
         for i in range(N):
@@ -188,30 +178,15 @@ class RhoAdapter:
     def predict_rho(self, pri_res, dual_res, pri_norm, dual_norm, current_rho):
         """Predict new rho value based on residuals"""
 
+        normalized_pri = pri_res / (pri_norm + 1e-10)
+        normalized_dual = dual_res / (dual_norm + 1e-10)
 
-        if self.method == "heuristic":
-            # Simple heuristic based on ratio
-            ratio = pri_res / (dual_res + 1e-8)
+        ratio = normalized_pri / (normalized_dual + 1e-10)
             
-            if ratio > 3.0:  # Primal residual much larger
-                rho_new = current_rho * 1.1
-            elif ratio < 3.0:  # Dual residual much larger
-                rho_new = current_rho * 0.9
-            else:
-                rho_new = current_rho
+        rho_new = current_rho * np.sqrt(ratio)
             
-        else:
 
-            normalized_pri = pri_res / (pri_norm + 1e-10)
-            normalized_dual = dual_res / (dual_norm + 1e-10)
-
-            ratio = normalized_pri / (normalized_dual + 1e-10)
-            
-            rho_new = current_rho * np.sqrt(ratio)
-            
-        #clipping only when running traj.py
-        if self.clip:
-            rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
+        rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
 
         self.rho_history.append(rho_new)
         return rho_new

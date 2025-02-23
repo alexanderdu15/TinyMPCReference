@@ -37,7 +37,6 @@ def parse_args():
                         help='Plot comparison between adaptive and fixed runs')
     parser.add_argument('--plot-comparison-wind', action='store_true',
                         help='Plot comparison between wind and no-wind cases')
-    # Add trajectory type arguments
     parser.add_argument('--straight', action='store_true',
                         help='Use straight line trajectory')
     parser.add_argument('--curve', action='store_true',
@@ -46,9 +45,11 @@ def parse_args():
                         help='Use heuristic rho adaptation')
     parser.add_argument('--plot-paper', action='store_true',
                         help='Generate paper-quality comparison plots')
+    parser.add_argument('--wind-seed', type=int, default=42,
+                        help='Random seed for wind generation')
     return parser.parse_args()
 
-def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_type='full', use_heuristic=False):
+def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_type='full', use_heuristic=False, wind_seed=42):
     # Create quadrotor instance
     quad = QuadrotorDynamics()
 
@@ -96,7 +97,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
     N = 15
 
     # Initialize rho (keep the last value from previous run)
-    initial_rho = getattr(main, 'last_rho', 1.0)  # Default 1.0 if first run
+    initial_rho = getattr(main, 'last_rho', 5.0)  # Default 1.0 if first run
     
     if use_rho_adaptation:
         print(f"Using warm-started rho: {initial_rho}")
@@ -161,10 +162,10 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             quad=quad,
             trajectory=trajectory,
             dt_sim=0.01,
-            #dt_mpc=quad.dt,
             dt_mpc=0.02,
             NSIM=200,
-            use_wind=use_wind
+            use_wind=use_wind,
+            wind_seed=wind_seed
         )
 
         # Unpack results based on whether we're using rho adaptation
@@ -222,8 +223,8 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
 
 
         # Update how we call plot_all_metrics
-        plot_all_metrics(suffix=suffix, use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
-        plot_state_and_costs(suffix=suffix, use_rho_adaptation=use_rho_adaptation)
+        # plot_all_metrics(suffix=suffix, use_rho_adaptation=use_rho_adaptation, dt=quad.dt)
+        # plot_state_and_costs(suffix=suffix, use_rho_adaptation=use_rho_adaptation)
 
         print("\nSimulation completed successfully!")
         print(f"Average iterations per step: {np.mean(iterations):.2f}")
@@ -250,6 +251,14 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             t = np.arange(len(x_all)) * quad.dt
             ref_data = np.array([trajectory.generate_reference(ti)[0:3] for ti in t])
             np.savetxt(ref_path, ref_data)
+
+        # Store results in a simple format
+        results_file = f"../data/comparison_tests/results_{suffix}.txt"
+        with open(results_file, 'w') as f:
+            f.write(f"iterations: {np.mean(iterations)}\n")
+            f.write(f"traj_cost: {np.mean(metrics['trajectory_costs'])}\n")
+            f.write(f"avg_violation: {np.mean(metrics['violations'])}\n")
+            f.write(f"max_violation: {np.max(metrics['violations'])}\n")
 
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
@@ -279,4 +288,5 @@ if __name__ == "__main__":
                  use_recaching=args.recache,
                  use_wind=args.wind,
                  traj_type=traj_type,
-                 use_heuristic=args.heuristic)
+                 use_heuristic=args.heuristic,
+                 wind_seed=args.wind_seed)
