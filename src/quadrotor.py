@@ -68,10 +68,17 @@ class QuadrotorDynamics:
     def get_linearized_dynamics(self, x_ref, u_ref):
         """Get linearized dynamics matrices around reference point"""
         A_jac = jacobian(self.dynamics_rk4, 0)
+
+        #print elements of A_jac 13 by 13 
+
         B_jac = jacobian(self.dynamics_rk4, 1)
+
         
         A = A_jac(x_ref, u_ref)
         B = B_jac(x_ref, u_ref)
+
+        # print(A)
+        # print(B)
         
         return self.E(x_ref[3:7]).T @ A @ self.E(x_ref[3:7]), self.E(x_ref[3:7]).T @ B
 

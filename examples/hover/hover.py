@@ -76,6 +76,9 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
     Q = np.diag(1./max_dev_x**2)
     R = np.diag(1./max_dev_u**2)
 
+    # print(Q)
+    # print(R)
+
 
 
     # Setup MPC
@@ -225,6 +228,6 @@ if __name__ == "__main__":
              use_recaching=args.recache,
              use_wind=args.wind,
              use_heuristic=args.heuristic,
-             rho_update_freq=10)  # Add frequency parameter here
+             rho_update_freq=1)  # Add frequency parameter here
 
        

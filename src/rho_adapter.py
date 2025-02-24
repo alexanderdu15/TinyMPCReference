@@ -188,6 +188,11 @@ class RhoAdapter:
 
         rho_new = np.clip(rho_new, self.rho_min, self.rho_max)
 
+
+        # if rho_new >= 1.2*current_rho or rho_new <= current_rho/1.2:
+        #     return rho_new
+
+
         self.rho_history.append(rho_new)
         return rho_new
 
