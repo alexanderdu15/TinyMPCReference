@@ -101,6 +101,11 @@ class TinyMPC:
         AmBKt = (A - B @ Kinf).T
         Quu_inv = np.linalg.inv(R_rho + B.T @ Pinf @ B)
 
+        print(Kinf.shape)
+        print(Pinf.shape)
+        print(Quu_inv.shape)
+        print(AmBKt.shape)
+
         # Cache computed terms
         self.cache['Kinf'] = Kinf
         self.cache['Pinf'] = Pinf
@@ -254,7 +259,7 @@ class TinyMPC:
             #     print(f"Dual Input Residual: {dua_res_input}")
             #     print(f"Dual State Residual: {dua_res_state}")
 
-            if self.rho_adapter is not None and k% 10 == 0:
+            if self.rho_adapter is not None and k > 0.4*self.max_iter and k%5==0:
                 self.update_rho()
 
             z_prev = np.copy(z)
