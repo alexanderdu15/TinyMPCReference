@@ -23,8 +23,8 @@ autograd
 
 ### Setup
 ```bash
-git clone [your-repository-url]
-cd [repository-name]
+git clone https://github.com/A2R-Lab/TinyMPCReference.git
+cd TinyMPCReference
 ```
 
 ## Usage
