@@ -165,7 +165,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             dt_mpc=0.02,
             NSIM=200,
             use_wind=use_wind,
-            wind_seed=wind_seed
+            
         )
 
         # Unpack results based on whether we're using rho adaptation
@@ -175,7 +175,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             x_all, u_all, iterations, _, metrics = simulation_result
             rho_history = None
 
-        # Now you can access the metrics separately
+
         trajectory_costs = metrics['trajectory_costs']
         control_efforts = metrics['control_efforts']
 
