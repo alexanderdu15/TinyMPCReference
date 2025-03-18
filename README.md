@@ -50,7 +50,7 @@ python3 examples/traj/traj.py --wind
 ### Command Line Arguments
 
 - `--adapt`: Enable rho adaptation
-- `--wind`: Enable wind disturbance
+- `--wind`: Enable wind disturbance (functionality enabled only for trajectory tracking for now) 
 
 ## Project Structure
 ```
@@ -61,6 +61,7 @@ python3 examples/traj/traj.py --wind
 ├── utils/
 │   ├── visualization.py    # Plotting utilities
 │   ├── traj_simulation.py  # Simulation tools
+│   ├── hover_simulation.py  # Simulation tools
 │   └── reference_trajectories.py
 ├── examples/
 │   ├── hover/
@@ -70,13 +71,6 @@ python3 examples/traj/traj.py --wind
 └── data/                   # Simulation results and metrics
 ```
 
-## Results
-
-The controller can maintain stable hover and track trajectories while adapting to disturbances. Performance metrics include:
-- Tracking error
-- Control effort
-- Convergence iterations
-- Constraint violations
 
 
 ## Contact
