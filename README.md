@@ -81,4 +81,4 @@ The controller can maintain stable hover and track trajectories while adapting t
 
 ## Contact
 
-Please contact the developers of this repository at [iam2141@columbia.edu](mailto:iam2141@columbia.edu)
+For any questions/concerns, please contact the developers of this repository at [iam2141@columbia.edu](mailto:iam2141@columbia.edu)
