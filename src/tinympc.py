@@ -168,11 +168,13 @@ class TinyMPC:
 
         if self.mode == 'hover':
             self.max_iter = 500
+            self.abs_pri_tol = 1e-2
+            self.abs_dua_tol = 1e-2
         else:
-            self.max_iter = 50
+            self.max_iter = 10
+            self.abs_pri_tol = 1e-3
+            self.abs_dua_tol = 1e-3
 
-        self.abs_pri_tol = abs_pri_tol
-        self.abs_dua_tol = abs_dua_tol
 
     def update_rho(self):
         """Update rho using the adapter if provided"""
@@ -251,15 +253,8 @@ class TinyMPC:
             dua_res_input = np.max(np.abs(self.cache['rho'] * (z_prev - z)))
             dua_res_state = np.max(np.abs(self.cache['rho'] * (v_prev - v)))
 
-            # #print residual every 50 iterations
-            # if k % 50 == 0:
-            #     print(f"Iteration {k}:")
-            #     print(f"Input Residual: {pri_res_input}")
-            #     print(f"State Residual: {pri_res_state}")
-            #     print(f"Dual Input Residual: {dua_res_input}")
-            #     print(f"Dual State Residual: {dua_res_state}")
 
-            if self.rho_adapter is not None and k > 0.4*self.max_iter and k%5==0:
+            if self.rho_adapter is not None and k%5==0:
                 self.update_rho()
 
             z_prev = np.copy(z)

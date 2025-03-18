@@ -27,7 +27,7 @@ class QuadrotorDynamics:
         
         self.hover_thrust = (self.mass * self.g / self.kt / 4) * np.ones(4)
 
-    def dynamics(self, x, u):
+    def dynamics(self, x, u, wind_vec=None):
         # Normalize quaternion at the start
         r = x[0:3]
         q = x[3:7]/norm(x[3:7])
@@ -38,9 +38,14 @@ class QuadrotorDynamics:
         dr = v
         dq = 0.5 * self.L(q) @ self.H @ omg
         
+        # Base acceleration
         dv = np.array([0, 0, -self.g]) + (1/self.mass) * Q @ np.array([[0, 0, 0, 0], 
                                                                        [0, 0, 0, 0], 
                                                                        [self.kt, self.kt, self.kt, self.kt]]) @ u
+        
+        # Add wind acceleration if provided
+        if wind_vec is not None:
+            dv += wind_vec
         
         domg = inv(self.J) @ (-self.hat(omg) @ self.J @ omg + 
                              np.array([[-self.el*self.kt, -self.el*self.kt, self.el*self.kt, self.el*self.kt], 
@@ -54,10 +59,10 @@ class QuadrotorDynamics:
             dt = self.dt
             
         # RK4 integration exactly as in reference
-        f1 = self.dynamics(x, u)
-        f2 = self.dynamics(x + 0.5*dt*f1, u)
-        f3 = self.dynamics(x + 0.5*dt*f2, u)
-        f4 = self.dynamics(x + dt*f3, u)
+        f1 = self.dynamics(x, u, wind_vec)
+        f2 = self.dynamics(x + 0.5*dt*f1, u, wind_vec)
+        f3 = self.dynamics(x + 0.5*dt*f2, u, wind_vec)
+        f4 = self.dynamics(x + dt*f3, u, wind_vec)
         
         xn = x + (dt/6.0)*(f1 + 2*f2 + 2*f3 + f4)
         xnormalized = xn[3:7]/norm(xn[3:7])

@@ -5,7 +5,7 @@ from utils.hover_simulation import uhover, xg
 from autograd import jacobian
 
 class RhoAdapter:
-    def __init__(self, rho_base=85.0, rho_min=60.0, rho_max=100.0, tolerance=1.1, method="analytical", clip = False):
+    def __init__(self, rho_base=85.0, rho_min=60.0, rho_max=100.0, tolerance=1.1, method="analytical", clip = False, mode = 'hover'):
         self.rho_base = rho_base
         self.rho_min = rho_min
         self.rho_max = rho_max
@@ -15,7 +15,7 @@ class RhoAdapter:
         self.residual_history = []
         self.derivatives = None
         self.clip = clip
-
+        self.mode = mode
     def initialize_derivatives(self, cache, eps=1e-4):
         """Initialize derivatives using autodiff"""
         print("Computing LQR sensitivity")
@@ -202,14 +202,28 @@ class RhoAdapter:
         """Update matrices using derivatives stored in cache"""
         old_rho = cache['rho']
         delta_rho = new_rho - old_rho
+
+
+        if self.mode == 'hover':
         
-        updates = {
-            'rho': new_rho,
-            'Kinf': cache['Kinf'] + delta_rho * cache['dKinf_drho'],
-            'Pinf': cache['Pinf'] + delta_rho * cache['dPinf_drho'],
-            'C1': cache['C1'] + delta_rho * cache['dC1_drho'],
-            'C2': cache['C2'] + delta_rho * cache['dC2_drho']
-        }
-        
+            updates = {
+                'rho': new_rho,
+                'Kinf': cache['Kinf'] + delta_rho * cache['dKinf_drho'],
+                'Pinf': cache['Pinf'] + delta_rho * cache['dPinf_drho'],
+                'C1': cache['C1'] + delta_rho * cache['dC1_drho'],
+                'C2': cache['C2'] + delta_rho * cache['dC2_drho']
+            }
+        else:
+
+            # NO C2 updates here for now for python numerical stability issues
+
+             updates = {
+                'rho': new_rho,
+                'Kinf': cache['Kinf'] + delta_rho * cache['dKinf_drho'],
+                'Pinf': cache['Pinf'] + delta_rho * cache['dPinf_drho'],
+                'C1': cache['C1'] + delta_rho * cache['dC1_drho']
+            }
+
+ 
         return updates
 

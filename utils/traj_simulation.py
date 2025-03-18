@@ -105,16 +105,27 @@ def shift_steps(x_nom, u_nom, x_curr, goals=None, dt=None):
     return x_nom, u_nom
 
 
-def generate_wind(t):
-    """Generate time-varying wind disturbance"""
-    wind_mean = np.array([0.5, 0.0, 0.3])
-    wind_freq = 0.5
-    wind_amp = 0.5
-    wind = wind_mean + wind_amp * np.array([
-        np.sin(wind_freq * t),
-        np.cos(wind_freq * t),
-        0.2 * np.sin(2 * wind_freq * t)
+def generate_wind(t, seed=None):
+    """Generate wind disturbance according to the paper's model
+    w(t) = m * [cos(θ), sin(θ), η]
+    where:
+    - m = 25.5 m/s^2 (wind acceleration magnitude)
+    - θ ~ U(0, 2π) (horizontal wind direction)
+    - η ~ U(-0.3, 0.3) (vertical component)
+    """
+    if seed is not None:
+        np.random.seed(seed)
+    
+    m = 25.5  # wind magnitude in m/s^2
+    theta = np.random.uniform(0, 2*np.pi)  # random horizontal direction
+    eta = np.random.uniform(-0.3, 0.3)     # random vertical component
+    
+    wind = m * np.array([
+        np.cos(theta),  # x component
+        np.sin(theta),  # y component
+        eta            # z component
     ])
+    
     return wind
 
 def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, 

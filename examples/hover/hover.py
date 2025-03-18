@@ -91,7 +91,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, use_heur
             rho_base=initial_rho, 
             rho_min=60.0, 
             rho_max=100.0,
-            method="heuristic" if use_heuristic else "analytical"
+            mode = 'hover'
         )
     else:
         rho_adapter = None

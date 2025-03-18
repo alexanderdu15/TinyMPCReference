@@ -97,16 +97,17 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
     N = 15
 
     # Initialize rho (keep the last value from previous run)
-    initial_rho = getattr(main, 'last_rho', 5.0)  # Default 1.0 if first run
+    initial_rho = getattr(main, 'last_rho', 5.0)  
     
     if use_rho_adaptation:
-        print(f"Using warm-started rho: {initial_rho}")
+        
         rho_adapter = RhoAdapter(
             rho_base=initial_rho, 
             rho_min=1.0, 
             rho_max=200.0,
             method="heuristic" if use_heuristic else "analytical",
-            clip = True
+            clip = True,
+            mode = 'traj'
         )
     else:
         rho_adapter = None
@@ -219,7 +220,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
         np.savetxt(data_dir / 'costs' / f"costs{suffix}.txt", metrics['solve_costs'])
         np.savetxt(data_dir / 'violations' / f"violations{suffix}.txt", metrics['violations'])
 
-        #visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
+        visualize_trajectory(x_all, u_all, trajectory=trajectory, dt=quad.dt)
 
 
         # Update how we call plot_all_metrics
@@ -252,13 +253,7 @@ def main(use_rho_adaptation=False, use_recaching=False, use_wind=False, traj_typ
             ref_data = np.array([trajectory.generate_reference(ti)[0:3] for ti in t])
             np.savetxt(ref_path, ref_data)
 
-        # Store results in a simple format
-        results_file = f"../data/comparison_tests/results_{suffix}.txt"
-        with open(results_file, 'w') as f:
-            f.write(f"iterations: {np.mean(iterations)}\n")
-            f.write(f"traj_cost: {np.mean(metrics['trajectory_costs'])}\n")
-            f.write(f"avg_violation: {np.mean(metrics['violations'])}\n")
-            f.write(f"max_violation: {np.max(metrics['violations'])}\n")
+       
 
     except Exception as e:
         print(f"Error during simulation: {str(e)}")
