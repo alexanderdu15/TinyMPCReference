@@ -105,27 +105,49 @@ def shift_steps(x_nom, u_nom, x_curr, goals=None, dt=None):
     return x_nom, u_nom
 
 
-def generate_wind(t, seed=None):
-    """Generate wind disturbance according to the paper's model
-    w(t) = m * [cos(θ), sin(θ), η]
-    where:
-    - m = 25.5 m/s^2 (wind acceleration magnitude)
-    - θ ~ U(0, 2π) (horizontal wind direction)
-    - η ~ U(-0.3, 0.3) (vertical component)
-    """
-    if seed is not None:
-        np.random.seed(seed)
+# def generate_wind(t, seed=42):
+#     """Generate time-varying wind disturbance according to the paper's model
+#     w(t) = m * [cos(θ(t)), sin(θ(t)), η(t)]
+#     where:
+#     - m = 25.5 m/s^2 (wind acceleration magnitude)
+#     - θ(t) ~ U(0, 2π) varies with time
+#     - η(t) ~ U(-0.3, 0.3) varies with time
+#     """
+#     # Set random seed for this timestep
+#     rng = np.random.RandomState(seed + int(t/0.1))  # Change seed every 0.1s
     
-    m = 25.5  # wind magnitude in m/s^2
-    theta = np.random.uniform(0, 2*np.pi)  # random horizontal direction
-    eta = np.random.uniform(-0.3, 0.3)     # random vertical component
+#     m = 25.5  # wind magnitude in m/s^2
+#     theta = rng.uniform(0, 2*np.pi)  # random horizontal direction
+#     eta = rng.uniform(-0.3, 0.3)     # random vertical component
     
-    wind = m * np.array([
-        np.cos(theta),  # x component
-        np.sin(theta),  # y component
-        eta            # z component
-    ])
+#     wind = m * np.array([
+#         np.cos(theta),  # x component
+#         np.sin(theta),  # y component
+#         eta            # z component
+#     ])
     
+#     return wind
+
+def generate_wind(t):
+    """Generate random wind disturbances"""
+    # Generate random wind events (20% chance of wind at any time)
+    if np.random.random() < 0.5:
+        # Random wind direction and magnitude
+        # wind_magnitude = np.random.uniform(5.5, 7.5)
+        # wind_direction = np.random.uniform(0, 2*np.pi)
+
+        wind_magnitude = 25.5
+
+        wind_direction = np.pi/2
+
+        wind = wind_magnitude * np.array([
+            np.cos(wind_direction),  # x component
+            np.sin(wind_direction),  # y component
+            np.random.uniform(-0.3, 0.3)  # z component
+        ])
+    else:
+        wind = np.zeros(3)
+
     return wind
 
 def simulate_with_controller(x0, x_nom, u_nom, mpc, quad, trajectory, 
